@@ -24,6 +24,7 @@ function Home() {
 const routes: RouteObject[] = [
   { path: "/welcome", element: <Welcome /> },
   { path: "/landing", lazy: async () => ({ Component: (await import("@/screens/Landing")).Landing }) },
+  { path: "/admin", lazy: async () => ({ Component: (await import("@/screens/Admin")).Admin }) },
   { path: "/start", lazy: async () => ({ Component: (await import("@/screens/Start")).Start }) },
   {
     element: <AppShell />,
@@ -54,7 +55,6 @@ const routes: RouteObject[] = [
       { path: "groups/:slug", lazy: async () => ({ Component: (await import("@/screens/Groups")).GroupDetail }) },
       { path: "tools/sop", lazy: async () => ({ Component: (await import("@/screens/tools/SopBuilder")).SopBuilder }) },
       { path: "tools/savings", lazy: async () => ({ Component: (await import("@/screens/tools/SavingsPlanner")).SavingsPlanner }) },
-      { path: "admin", lazy: async () => ({ Component: (await import("@/screens/Admin")).Admin }) },
       { path: "me", lazy: async () => ({ Component: (await import("@/screens/Me")).Me }) },
       { path: "*", element: <NotFound /> },
     ],
