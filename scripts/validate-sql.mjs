@@ -1,0 +1,124 @@
+// Runs the Supabase migrations against an in-memory Postgres (PGlite) with small
+// stand-ins for Supabase's auth and storage schemas, then checks that the row
+// level security policies behave as intended.
+import { PGlite } from "@electric-sql/pglite";
+import { readdirSync, readFileSync } from "node:fs";
+
+const dir = new URL("../supabase/migrations/", import.meta.url);
+const db = new PGlite();
+
+await db.exec(`
+  create role anon nologin;
+  create role authenticated nologin;
+  create schema auth;
+  create table auth.users (id uuid primary key, email text);
+  create function auth.uid() returns uuid language sql stable
+    as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+  create schema storage;
+  create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+  create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
+  alter table storage.objects enable row level security;
+  create function storage.foldername(name text) returns text[] language sql immutable
+    as $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
+  grant usage on schema public, auth, storage to anon, authenticated;
+`);
+
+for (const file of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) {
+  await db.exec(readFileSync(new URL(file, dir), "utf8"));
+  console.log(`applied ${file}`);
+}
+
+// The generated seed must load cleanly too.
+await db.exec(readFileSync(new URL("../supabase/seed.sql", import.meta.url), "utf8"));
+console.log("applied seed.sql");
+
+// Supabase grants table privileges to these roles by default; RLS does the filtering.
+await db.exec(`
+  grant select, insert, update, delete on all tables in schema public to anon, authenticated;
+  grant usage on all sequences in schema public to anon, authenticated;
+  grant select, insert, update, delete on storage.objects to authenticated;
+`);
+
+const A = "11111111-1111-4111-8111-111111111111";
+const B = "22222222-2222-4222-8222-222222222222";
+await db.exec(`insert into auth.users (id, email) values ('${A}', 'a@example.com'), ('${B}', 'b@example.com');`);
+
+let failures = 0;
+const check = (name, ok) => {
+  console.log(`${ok ? "PASS" : "FAIL"}  ${name}`);
+  if (!ok) failures += 1;
+};
+
+async function as(user, fn) {
+  await db.exec("reset role;");
+  await db.query("select set_config('request.jwt.claim.sub', $1, false)", [user ?? ""]);
+  await db.exec(`set role ${user ? "authenticated" : "anon"};`);
+  try {
+    return await fn();
+  } finally {
+    await db.exec("reset role;");
+  }
+}
+
+async function fails(fn) {
+  try {
+    await fn();
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+// user_state: own row only
+await as(A, () => db.query(`insert into public.user_state (user_id, state) values ($1, '{"onboarded": true}')`, [A]));
+check("user can save their own state", (await as(A, () => db.query("select * from public.user_state"))).rows.length === 1);
+check("user cannot write someone else's state", await as(A, () => fails(() => db.query(`insert into public.user_state (user_id, state) values ($1, '{}')`, [B]))));
+check("other users cannot read it", (await as(B, () => db.query("select * from public.user_state"))).rows.length === 0);
+check("anonymous visitors cannot read it", (await as(null, () => db.query("select * from public.user_state"))).rows.length === 0);
+
+// scam reports: pending until approved by an admin
+await as(A, () => db.query(`insert into public.scam_reports (channel, summary, amount_lkr) values ('WhatsApp', 'Asked for a processing fee for a farm job', 450000)`));
+check("reporter sees their pending report", (await as(A, () => db.query("select * from public.scam_reports"))).rows.length === 1);
+check("public cannot see pending reports", (await as(null, () => db.query("select * from public.scam_reports"))).rows.length === 0);
+check(
+  "reporters cannot self-approve",
+  await as(A, () => fails(() => db.query(`insert into public.scam_reports (channel, summary, status) values ('Email', 'Another suspicious offer', 'approved')`))),
+);
+await db.exec(`insert into public.admins (user_id) values ('${B}');`);
+await as(B, () => db.query("update public.scam_reports set status = 'approved'"));
+check("admins can approve, then it is public", (await as(null, () => db.query("select * from public.scam_reports"))).rows.length === 1);
+
+// waitlist: write-only for the public
+check("anyone can join the waitlist", !(await as(null, () => fails(() => db.query(`insert into public.waitlist (kind, email) values ('pro', 'x@example.com')`)))));
+check("public cannot read waitlist emails", (await as(null, () => db.query("select * from public.waitlist"))).rows.length === 0);
+check("invalid emails are rejected", await as(null, () => fails(() => db.query(`insert into public.waitlist (kind, email) values ('pro', 'not-an-email')`))));
+
+// bookings
+check(
+  "users can request a future session",
+  !(await as(A, () => fails(() => db.query(`insert into public.mentor_bookings (mentor_id, slot, topic) values ('sample-nurse', now() + interval '2 days', 'Registration')`)))),
+);
+check(
+  "sessions in the past are rejected",
+  await as(A, () => fails(() => db.query(`insert into public.mentor_bookings (mentor_id, slot) values ('sample-nurse', now() - interval '1 day')`))),
+);
+check("other users cannot see a booking", (await as(B, () => db.query("select * from public.mentor_bookings"))).rows.length === 0);
+
+// mentors: only verified profiles are public
+await db.exec(`insert into public.mentors (id, display_name, role, city, years_in_nz, path, price_lkr, verified) values
+  ('m1', 'Verified mentor', 'Nurse', 'Auckland', 4, 'registered', 6000, true),
+  ('m2', 'Unverified mentor', 'Engineer', 'Hamilton', 2, 'worker', 5000, false);`);
+check("only verified mentors are listed", (await as(null, () => db.query("select id from public.mentors"))).rows.map((r) => r.id).join() === "m1");
+
+// storage: private per-user folders
+check("users upload into their own folder", !(await as(A, () => fails(() => db.query(`insert into storage.objects (bucket_id, name) values ('documents', '${A}/passport.pdf')`)))));
+check("users cannot upload into another folder", await as(A, () => fails(() => db.query(`insert into storage.objects (bucket_id, name) values ('documents', '${B}/passport.pdf')`))));
+check("other users cannot list the files", (await as(B, () => db.query("select * from storage.objects"))).rows.length === 0);
+
+// data rules
+check("NZBNs must be 13 digits starting with 94", await fails(() => db.query(`insert into public.accredited_employers (name, nzbn, source_date) values ('Test Ltd', '12345', current_date)`)));
+check("pathway content is publicly readable", (await as(null, () => db.query("select id from public.pathways"))).rows.length === 5);
+check("only admins can edit pathway content", (await as(A, () => db.query("update public.pathways set reviewed_by = 'me' returning id"))).rows.length === 0);
+
+console.log(failures ? `\n${failures} check(s) failed` : "\nAll checks passed");
+process.exit(failures ? 1 : 0);

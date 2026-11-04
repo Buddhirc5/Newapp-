@@ -1,0 +1,503 @@
+@import "tailwindcss";
+@import "./fonts.css";
+
+/*
+  KiwiPath design tokens.
+  Layout: one app column (max 640px) with a floating capsule tab bar on phones;
+  a sidebar plus a centred reading column on iPad and desktop widths.
+  Palette comes from the reference board (Fantasy, Light Gold, Smoky Black, Malibu,
+  Bright Lavender, Teal, Blossom Pink, Light Coral). "-ink" variants are darker
+  shades used wherever text sits on the colour, so labels stay above 4.5:1.
+*/
+:root {
+  --bg: #f5f4ed;
+  --surface: #ffffff;
+  --surface-2: #fbfaf6;
+  --fill: rgb(16 15 6 / 0.05);
+  --fill-2: rgb(16 15 6 / 0.09);
+  --fill-3: rgb(16 15 6 / 0.14);
+  --sep: rgb(16 15 6 / 0.12);
+  --label: #100f06;
+  --label-2: rgb(16 15 6 / 0.66);
+  --label-3: rgb(16 15 6 / 0.46);
+  --material: rgb(245 244 237 / 0.78);
+  --topo: rgb(16 15 6 / 0.075);
+
+  --gold: #ffda57;
+  --gold-soft: #fff1bd;
+  --teal: #00917a;
+  --teal-ink: #00765f;
+  --teal-soft: #d4efe9;
+  --malibu: #7dcaf6;
+  --malibu-soft: #dcf0fc;
+  --lavender: #a293ff;
+  --lavender-soft: #e7e3ff;
+  --pink: #ffbbf4;
+  --pink-soft: #ffe6fb;
+  --coral: #f47575;
+  --coral-soft: #fde2e2;
+  --coral-ink: #b83234;
+  --green: #8fd694;
+  --green-soft: #dcf5de;
+  --green-ink: #1d7a3a;
+  --orange: #f4a53c;
+
+  --ink: #100f06;
+  --paper: #f5f4ed;
+  --night: #100f06;
+  --night-2: #23221a;
+  --focus: #0a84ff;
+
+  /* Chart categories (validated for colour-vision deficiency on both surfaces). */
+  --chart-1: #7f6cf0;
+  --chart-2: #d99a0b;
+  --chart-3: #00917a;
+
+  --shadow-card: 0 1px 2px rgb(16 15 6 / 0.06), 0 8px 24px rgb(16 15 6 / 0.06);
+  --shadow-float: 0 2px 6px rgb(16 15 6 / 0.12), 0 16px 40px rgb(16 15 6 / 0.18);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue",
+    "Noto Sans", "Noto Sans Sinhala", "Noto Sans Tamil", "Iskoola Pota", "Latha", system-ui, sans-serif;
+  --font-wide: "Archivo Variable", "Archivo", "Arial Black", "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #100f06;
+    --surface: #1d1c13;
+    --surface-2: #26251b;
+    --fill: rgb(245 244 237 / 0.07);
+    --fill-2: rgb(245 244 237 / 0.11);
+    --fill-3: rgb(245 244 237 / 0.17);
+    --sep: rgb(245 244 237 / 0.14);
+    --label: #f5f4ed;
+    --label-2: rgb(245 244 237 / 0.7);
+    --label-3: rgb(245 244 237 / 0.48);
+    --material: rgb(29 28 19 / 0.78);
+    --topo: rgb(245 244 237 / 0.06);
+    --gold-soft: #3a3214;
+    --teal-ink: #008a71;
+    --teal-soft: #0f3029;
+    --malibu-soft: #15303f;
+    --lavender-soft: #262145;
+    --pink-soft: #3d2338;
+    --coral-soft: #3f1d1d;
+    --coral-ink: #ff8f8f;
+    --green-soft: #18321c;
+    --green-ink: #8fd694;
+    --night: #26251b;
+    --night-2: #34332a;
+    --chart-1: #8a79f2;
+    --chart-2: #c2890c;
+    --chart-3: #0fa287;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
+    --shadow-float: 0 2px 6px rgb(0 0 0 / 0.5), 0 16px 40px rgb(0 0 0 / 0.5);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #100f06;
+  --surface: #1d1c13;
+  --surface-2: #26251b;
+  --fill: rgb(245 244 237 / 0.07);
+  --fill-2: rgb(245 244 237 / 0.11);
+  --fill-3: rgb(245 244 237 / 0.17);
+  --sep: rgb(245 244 237 / 0.14);
+  --label: #f5f4ed;
+  --label-2: rgb(245 244 237 / 0.7);
+  --label-3: rgb(245 244 237 / 0.48);
+  --material: rgb(29 28 19 / 0.78);
+  --topo: rgb(245 244 237 / 0.06);
+  --gold-soft: #3a3214;
+  --teal-ink: #008a71;
+  --teal-soft: #0f3029;
+  --malibu-soft: #15303f;
+  --lavender-soft: #262145;
+  --pink-soft: #3d2338;
+  --coral-soft: #3f1d1d;
+  --coral-ink: #ff8f8f;
+  --green-soft: #18321c;
+  --green-ink: #8fd694;
+  --night: #26251b;
+  --night-2: #34332a;
+  --chart-1: #8a79f2;
+  --chart-2: #c2890c;
+  --chart-3: #0fa287;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
+  --shadow-float: 0 2px 6px rgb(0 0 0 / 0.5), 0 16px 40px rgb(0 0 0 / 0.5);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-fill: var(--fill);
+  --color-fill-2: var(--fill-2);
+  --color-fill-3: var(--fill-3);
+  --color-sep: var(--sep);
+  --color-label: var(--label);
+  --color-label-2: var(--label-2);
+  --color-label-3: var(--label-3);
+  --color-material: var(--material);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-teal: var(--teal);
+  --color-teal-ink: var(--teal-ink);
+  --color-teal-soft: var(--teal-soft);
+  --color-malibu: var(--malibu);
+  --color-malibu-soft: var(--malibu-soft);
+  --color-lavender: var(--lavender);
+  --color-lavender-soft: var(--lavender-soft);
+  --color-pink: var(--pink);
+  --color-pink-soft: var(--pink-soft);
+  --color-coral: var(--coral);
+  --color-coral-soft: var(--coral-soft);
+  --color-coral-ink: var(--coral-ink);
+  --color-green: var(--green);
+  --color-green-soft: var(--green-soft);
+  --color-green-ink: var(--green-ink);
+  --color-orange: var(--orange);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-night: var(--night);
+  --color-night-2: var(--night-2);
+  --color-focus: var(--focus);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+
+  --font-sans: var(--font-sans);
+  --font-wide: var(--font-wide);
+  --font-mono: var(--font-mono);
+
+  --shadow-card: var(--shadow-card);
+  --shadow-float: var(--shadow-float);
+}
+
+/* Apple text styles at the default Dynamic Type size, in rem so browser text size settings scale them. */
+@theme {
+  --text-large-title: 2.125rem;
+  --text-large-title--line-height: 1.12;
+  --text-title1: 1.75rem;
+  --text-title1--line-height: 1.18;
+  --text-title2: 1.375rem;
+  --text-title2--line-height: 1.25;
+  --text-title3: 1.25rem;
+  --text-title3--line-height: 1.28;
+  --text-headline: 1.0625rem;
+  --text-headline--line-height: 1.3;
+  --text-body: 1.0625rem;
+  --text-body--line-height: 1.42;
+  --text-callout: 1rem;
+  --text-callout--line-height: 1.38;
+  --text-subhead: 0.9375rem;
+  --text-subhead--line-height: 1.36;
+  --text-footnote: 0.8125rem;
+  --text-footnote--line-height: 1.38;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.33;
+  --text-caption2: 0.6875rem;
+  --text-caption2--line-height: 1.2;
+  --text-hero: clamp(2.25rem, 9vw, 3.25rem);
+  --text-hero--line-height: 1.04;
+
+  --radius-card: 1.75rem;
+  --radius-tile: 1.25rem;
+  --radius-sheet: 2rem;
+
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Wide display face for titles: Archivo at its widest, heavy setting. */
+@utility type-display {
+  font-family: var(--font-wide);
+  font-stretch: 125%;
+  font-weight: 800;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility gutter-x {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer base {
+  :root {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    background: var(--bg);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--label);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: 1.42;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  /* Paints the status-bar band so content never scrolls visibly under the system clock. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 auto;
+    height: env(safe-area-inset-top, 0px);
+    z-index: 60;
+    background: var(--bg);
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  button,
+  [role="button"] {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  button:disabled {
+    cursor: default;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--gold) 70%, transparent);
+    color: var(--ink);
+  }
+
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  mark {
+    background: color-mix(in srgb, var(--coral) 35%, transparent);
+    color: inherit;
+    border-radius: 4px;
+    padding: 0 2px;
+  }
+}
+
+/* Contour-map texture from the reference board, tinted through a token in both themes. */
+.topo-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: var(--topo);
+  -webkit-mask-image: url("../assets/topo.svg");
+  mask-image: url("../assets/topo.svg");
+  -webkit-mask-size: 640px;
+  mask-size: 640px;
+}
+
+.topo-fill {
+  background-color: currentColor;
+  -webkit-mask-image: url("../assets/topo.svg");
+  mask-image: url("../assets/topo.svg");
+  -webkit-mask-size: 520px;
+  mask-size: 520px;
+}
+
+@keyframes kp-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes kp-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+
+@keyframes kp-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+@keyframes kp-twinkle {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.7) rotate(20deg);
+    opacity: 0.6;
+  }
+}
+
+.kp-bob {
+  animation: kp-bob 3.2s ease-in-out infinite;
+}
+
+.kp-blink {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: kp-blink 5s infinite;
+}
+
+.kp-pulse {
+  animation: kp-pulse 1.8s ease-out infinite;
+}
+
+.kp-twinkle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: kp-twinkle 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kp-bob,
+  .kp-blink,
+  .kp-pulse,
+  .kp-twinkle {
+    animation: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  body::before,
+  .topo-layer,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+}
+
+/* Native select chevron, drawn with the label colour of each theme. */
+:root {
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23100f06' stroke-opacity='.55' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23f5f4ed' stroke-opacity='.6' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+}
+:root[data-theme="dark"] {
+  --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23f5f4ed' stroke-opacity='.6' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* iOS-style slider: filled track up to the thumb, large round thumb. */
+.kp-range {
+  --track: var(--fill-3);
+  --fill-color: var(--teal);
+}
+.kp-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--fill-color) var(--pct), var(--track) var(--pct));
+}
+.kp-range::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--track);
+}
+.kp-range::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--fill-color);
+}
+.kp-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -11px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0.5px 4px rgb(0 0 0 / 0.12), 0 6px 13px rgb(0 0 0 / 0.12), 0 0 0 0.5px rgb(0 0 0 / 0.04);
+}
+.kp-range::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0.5px 4px rgb(0 0 0 / 0.12), 0 6px 13px rgb(0 0 0 / 0.12);
+}
+.kp-range:focus-visible {
+  outline: none;
+}
+.kp-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px var(--focus);
+}
+.kp-range:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px var(--focus);
+}
