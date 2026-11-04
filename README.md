@@ -2,6 +2,8 @@
 
 **From Colombo to Aotearoa, one step at a time.**
 
+Live app: https://kiwipath-nz.vercel.app
+
 KiwiPath is a web app for Sri Lankans planning to move to New Zealand to study, work or join family. It turns a confusing process into a game-like journey map, with practical tools for each step:
 
 | Area | What it does |
