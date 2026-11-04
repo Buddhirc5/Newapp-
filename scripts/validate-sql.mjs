@@ -22,6 +22,7 @@ await db.exec(`
     as $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
   grant usage on schema public, auth, storage to anon, authenticated;
 `);
+// The grants migration revokes from the public pseudo-role; nothing else is needed here.
 
 for (const file of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) {
   await db.exec(readFileSync(new URL(file, dir), "utf8"));
@@ -119,6 +120,42 @@ check("other users cannot list the files", (await as(B, () => db.query("select *
 check("NZBNs must be 13 digits starting with 94", await fails(() => db.query(`insert into public.accredited_employers (name, nzbn, source_date) values ('Test Ltd', '12345', current_date)`)));
 check("pathway content is publicly readable", (await as(null, () => db.query("select id from public.pathways"))).rows.length === 5);
 check("only admins can edit pathway content", (await as(A, () => db.query("update public.pathways set reviewed_by = 'me' returning id"))).rows.length === 0);
+
+// ── Phase 1: profiles, board, reports, chat, news ──
+await db.exec("delete from public.admins;");
+check("sign-up creates a profile with a 30-day trial", (await db.query(`select plan, trial_ends_at > now() + interval '29 days' as ok from public.profiles where id = $1`, [A])).rows[0]?.ok === true);
+await as(A, () => db.query("update public.profiles set display_name = 'Nimali', verified = true, plan = 'pro', trial_ends_at = now() + interval '5 years' where id = $1", [A]));
+const prof = (await db.query("select display_name, verified, plan, trial_ends_at < now() + interval '31 days' as trial_ok from public.profiles where id = $1", [A])).rows[0];
+check("members edit their name but can't grant badges, plans or longer trials", prof.display_name === "Nimali" && !prof.verified && prof.plan === "trial" && prof.trial_ok);
+check("members can't edit other profiles", (await as(A, () => db.query("update public.profiles set bio = 'x' where id = $1 returning id", [B]))).rows.length === 0);
+
+const listing = (await as(A, () => db.query(`insert into public.listings (category, title, description, price_nzd, price_unit, city) values ('room', 'Room near Mt Albert station', 'Furnished room in a friendly Sri Lankan household. Power and wifi included.', 260, 'week', 'Auckland') returning id`))).rows[0].id;
+check("anyone can browse active listings", (await as(null, () => db.query("select id from public.listings"))).rows.length === 1);
+check("members can't post as someone else", await as(A, () => fails(() => db.query(`insert into public.listings (owner_id, category, title, description, city) values ($1, 'item', 'Rice cooker for sale', 'Barely used rice cooker, pick up in Hamilton.', 'Hamilton')`, [B]))));
+check("other members can't edit a listing", (await as(B, () => db.query("update public.listings set title = 'Hacked title here' where id = $1 returning id", [listing]))).rows.length === 0);
+
+const C = "33333333-3333-4333-8333-333333333333";
+const D = "44444444-4444-4444-8444-444444444444";
+await db.exec(`insert into auth.users (id, email) values ('${C}', 'c@example.com'), ('${D}', 'd@example.com');`);
+for (const u of [B, C, D]) await as(u, () => db.query(`insert into public.reports (target_type, target_id, reason) values ('listing', $1, 'Asked for a deposit before viewing')`, [listing]));
+check("three reports hide a listing", (await as(null, () => db.query("select id from public.listings"))).rows.length === 0);
+check("owners can't un-hide a reported listing", (await as(A, () => db.query("update public.listings set status = 'active' where id = $1 returning id", [listing]))).rows.length === 0);
+check("duplicate reports are rejected", await as(B, () => fails(() => db.query(`insert into public.reports (target_type, target_id, reason) values ('listing', $1, 'Again')`, [listing]))));
+
+await db.exec(`update public.listings set status = 'active' where id = '${listing}';`);
+const conv = (await as(B, () => db.query("select public.start_conversation($1) as id", [listing]))).rows[0].id;
+const again = (await as(B, () => db.query("select public.start_conversation($1) as id", [listing]))).rows[0].id;
+check("messaging a listing owner reuses one conversation", conv === again);
+await as(B, () => db.query("insert into public.messages (conversation_id, body) values ($1, 'Hi! Is the room still available?')", [conv]));
+await as(A, () => db.query("insert into public.messages (conversation_id, body) values ($1, 'Yes, come and view it on Saturday.')", [conv]));
+check("both participants read the chat", (await as(A, () => db.query("select id from public.messages"))).rows.length === 2);
+check("outsiders can't read the chat", (await as(C, () => db.query("select id from public.messages"))).rows.length === 0);
+check("outsiders can't post into the chat", await as(C, () => fails(() => db.query("insert into public.messages (conversation_id, body) values ($1, 'spam')", [conv]))));
+check("members can't message themselves", await as(A, () => fails(() => db.query("select public.start_conversation($1)", [listing]))));
+
+check("news is public", !(await as(null, () => fails(() => db.query("select * from public.news_items")))));
+check("visitors can't write news", await as(A, () => fails(() => db.query("insert into public.news_items (source, title, url, published_at) values ('x', 'y', 'https://x', now())"))));
+check("members upload photos only to their folder", await as(A, () => fails(() => db.query(`insert into storage.objects (bucket_id, name) values ('listing-photos', '${B}/x.jpg')`))));
 
 console.log(failures ? `\n${failures} check(s) failed` : "\nAll checks passed");
 process.exit(failures ? 1 : 0);
