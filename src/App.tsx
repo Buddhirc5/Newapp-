@@ -5,7 +5,8 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Toaster } from "@/components/ui/Toast";
 import { IS_PREVIEW } from "@/lib/env";
 import { loadRemoteContent } from "@/lib/content";
-import { loadMember } from "@/lib/community";
+import { loadMember, useMember } from "@/lib/community";
+import { Settle } from "@/screens/Settle";
 import { startSync, useAuth } from "@/lib/sync";
 import { useApp } from "@/store/app";
 import { Journey } from "@/screens/Journey";
@@ -14,12 +15,20 @@ import { Paths } from "@/screens/Paths";
 import { Tools } from "@/screens/Tools";
 import { Welcome } from "@/screens/Welcome";
 
+/** Members already in New Zealand get the settling-in home; everyone else gets their journey. */
+function Home() {
+  const situation = useMember((s) => s.profile?.situation);
+  return situation === "in_nz" ? <Settle /> : <Journey />;
+}
+
 const routes: RouteObject[] = [
   { path: "/welcome", element: <Welcome /> },
+  { path: "/landing", lazy: async () => ({ Component: (await import("@/screens/Landing")).Landing }) },
+  { path: "/start", lazy: async () => ({ Component: (await import("@/screens/Start")).Start }) },
   {
     element: <AppShell />,
     children: [
-      { index: true, element: <Journey /> },
+      { index: true, element: <Home /> },
       { path: "paths", element: <Paths /> },
       { path: "paths/:id", lazy: async () => ({ Component: (await import("@/screens/PathDetail")).PathDetail }) },
       { path: "tools", element: <Tools /> },
@@ -38,6 +47,13 @@ const routes: RouteObject[] = [
       { path: "board/:id", lazy: async () => ({ Component: (await import("@/screens/ListingDetail")).ListingDetail }) },
       { path: "chats", lazy: async () => ({ Component: (await import("@/screens/Chats")).Chats }) },
       { path: "chats/:id", lazy: async () => ({ Component: (await import("@/screens/Chats")).ChatThread }) },
+      { path: "guides", lazy: async () => ({ Component: (await import("@/screens/Guides")).Guides }) },
+      { path: "guides/:slug", lazy: async () => ({ Component: (await import("@/screens/Guides")).GuideDetail }) },
+      { path: "agencies", lazy: async () => ({ Component: (await import("@/screens/Agencies")).Agencies }) },
+      { path: "groups", lazy: async () => ({ Component: (await import("@/screens/Groups")).Groups }) },
+      { path: "groups/:slug", lazy: async () => ({ Component: (await import("@/screens/Groups")).GroupDetail }) },
+      { path: "tools/sop", lazy: async () => ({ Component: (await import("@/screens/tools/SopBuilder")).SopBuilder }) },
+      { path: "tools/savings", lazy: async () => ({ Component: (await import("@/screens/tools/SavingsPlanner")).SavingsPlanner }) },
       { path: "admin", lazy: async () => ({ Component: (await import("@/screens/Admin")).Admin }) },
       { path: "me", lazy: async () => ({ Component: (await import("@/screens/Me")).Me }) },
       { path: "*", element: <NotFound /> },

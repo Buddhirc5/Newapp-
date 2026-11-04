@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, CalendarCheck, Flag, Globe2, MapPin, MessageCircle, Newspaper, ShieldAlert, UserPlus } from "lucide-react";
+import { ArrowUpRight, CalendarCheck, Flag, Globe2, MapPin, MessageCircle, Newspaper, ShieldAlert, UserPlus, Users } from "lucide-react";
 import { Page } from "@/components/layout/Page";
 import { Avatar, Card, Notice, SectionHeader, Tag } from "@/components/ui/Bits";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -56,6 +56,9 @@ export function Community() {
             { value: "alerts", label: "Scam alerts" },
           ]}
         />
+        <ButtonLink to="/groups" variant="dark" icon={<Users className="size-5" aria-hidden />}>
+          Your groups: chat and meetups
+        </ButtonLink>
         {tab === "news" ? <News /> : tab === "mentors" ? <Mentors /> : <Alerts />}
       </div>
     </Page>

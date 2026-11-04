@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { MessageCircle, Plus, Search } from "lucide-react";
 import { CATEGORY_ICON, ListingCard } from "@/components/ListingCard";
 import { Page } from "@/components/layout/Page";
@@ -13,7 +13,9 @@ import { HAS_SUPABASE } from "@/lib/env";
 
 export function Board() {
   const navigate = useNavigate();
-  const [category, setCategory] = useState<ListingCategory | "all">("all");
+  const [params] = useSearchParams();
+  const initial = params.get("c") as ListingCategory | null;
+  const [category, setCategory] = useState<ListingCategory | "all">(initial && CATEGORIES.some((c) => c.id === initial) ? initial : "all");
   const [city, setCity] = useState("All cities");
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");

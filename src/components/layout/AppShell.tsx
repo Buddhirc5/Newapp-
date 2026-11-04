@@ -7,6 +7,9 @@ import { IS_PREVIEW } from "@/lib/env";
 import { tick } from "@/lib/haptics";
 import { useT } from "@/lib/i18n";
 import { useApp } from "@/store/app";
+import { HAS_SUPABASE } from "@/lib/env";
+import { useAuth } from "@/lib/sync";
+import { useMember } from "@/lib/community";
 import { Mascot } from "../Mascot";
 import { SampleBanner } from "../SampleBanner";
 
@@ -39,7 +42,16 @@ export function AppShell() {
     window.scrollTo({ top: 0 });
   }, [location.pathname]);
 
-  if (!onboarded && !IS_PREVIEW) return <Navigate to="/welcome" replace />;
+  const user = useAuth((s) => s.user);
+  const authReady = useAuth((s) => s.ready);
+  const member = useMember((s) => s.profile);
+
+  // Signed-in members finish their first-run questions before anything else.
+  if (HAS_SUPABASE && user && member && !member.onboarded) return <Navigate to="/start" replace />;
+  if (!onboarded && !IS_PREVIEW && !user) {
+    if (HAS_SUPABASE && !authReady) return null;
+    return <Navigate to={HAS_SUPABASE ? "/landing" : "/welcome"} replace />;
+  }
 
   return (
     <div className="relative min-h-dvh lg:pl-72">
