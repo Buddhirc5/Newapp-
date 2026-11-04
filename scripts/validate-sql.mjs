@@ -11,7 +11,7 @@ await db.exec(`
   create role anon nologin;
   create role authenticated nologin;
   create schema auth;
-  create table auth.users (id uuid primary key, email text);
+  create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb default '{}', last_sign_in_at timestamptz);
   create function auth.uid() returns uuid language sql stable
     as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   create schema storage;
@@ -156,6 +156,43 @@ check("members can't message themselves", await as(A, () => fails(() => db.query
 check("news is public", !(await as(null, () => fails(() => db.query("select * from public.news_items")))));
 check("visitors can't write news", await as(A, () => fails(() => db.query("insert into public.news_items (source, title, url, published_at) values ('x', 'y', 'https://x', now())"))));
 check("members upload photos only to their folder", await as(A, () => fails(() => db.query(`insert into storage.objects (bucket_id, name) values ('listing-photos', '${B}/x.jpg')`))));
+
+// ── Phase 2: groups, meetups, agencies, settings, admin ──
+const E = "55555555-5555-4555-8555-555555555555";
+await db.exec(`insert into auth.users (id, email, raw_user_meta_data) values ('${E}', 'e@example.com', '{"full_name":"Kasun Perera"}');`);
+check("Google sign-ups use their full name", (await db.query("select display_name from public.profiles where id = $1", [E])).rows[0].display_name === "Kasun Perera");
+await as(A, () => db.query("update public.profiles set situation = 'in_nz', stage = 'arrived', onboarded = true where id = $1", [A]));
+check("members set their own stage", (await db.query("select stage from public.profiles where id = $1", [A])).rows[0].stage === "arrived");
+
+const grp = (await db.query("select id from public.groups where slug = 'auckland'")).rows[0].id;
+check("non-members can't read a group's chat", await as(B, () => fails(() => db.query("insert into public.group_messages (group_id, body) values ($1, 'hello')", [grp]))));
+await as(A, () => db.query("insert into public.group_members (group_id) values ($1)", [grp]));
+await as(A, () => db.query("insert into public.group_messages (group_id, body) values ($1, 'Kia ora everyone!')", [grp]));
+check("joining updates the member count", (await db.query("select member_count from public.groups where id = $1", [grp])).rows[0].member_count === 1);
+check("members read their group chat", (await as(A, () => db.query("select id from public.group_messages"))).rows.length === 1);
+check("outsiders can't read group chat", (await as(C, () => db.query("select id from public.group_messages"))).rows.length === 0);
+check("members host future meetups", !(await as(A, () => fails(() => db.query("insert into public.meetups (group_id, title, starts_at, online_link) values ($1, 'Newcomer coffee', now() + interval '3 days', 'https://meet.jit.si/kiwipath-test')", [grp])))));
+check("meetup links must be https", await as(A, () => fails(() => db.query("insert into public.meetups (group_id, title, starts_at, online_link) values ($1, 'Bad link', now() + interval '3 days', 'javascript:alert(1)')", [grp]))));
+check("members can't join as someone else", await as(B, () => fails(() => db.query("insert into public.group_members (group_id, user_id) values ($1, $2)", [grp, C]))));
+
+await as(B, () => db.query("insert into public.agencies (name, city, website) values ('Test Education', 'Colombo', 'https://example.lk')"));
+check("suggested agencies stay hidden until approved", (await as(null, () => db.query("select id from public.agencies"))).rows.length === 0);
+check("members can't self-approve an agency", await as(B, () => fails(() => db.query("insert into public.agencies (name, city, status) values ('Fake Agency', 'Kandy', 'approved')"))));
+
+check("settings are public but read-only", (await as(A, () => db.query("update public.app_settings set value = '999' where key = 'trial_days' returning key"))).rows.length === 0);
+check("non-admins can't list members", await as(A, () => fails(() => db.query("select * from public.admin_list_members()"))));
+check("non-admins can't read stats", await as(A, () => fails(() => db.query("select public.admin_stats()"))));
+check("members can't edit others' profiles", (await as(A, () => db.query("update public.profiles set stage = 'settled' where id = $1 returning id", [B]))).rows.length === 0);
+await db.exec(`insert into public.admins (user_id) values ('${D}');`);
+check("admins list members with emails", (await as(D, () => db.query("select email from public.admin_list_members('kasun')"))).rows[0]?.email === "e@example.com");
+check("admins read stats", (await as(D, () => db.query("select public.admin_stats() as s"))).rows[0].s.members >= 5);
+await as(D, () => db.query("update public.profiles set plan = 'pro', verified = true where id = $1", [A]));
+check("admins can upgrade a member", (await db.query("select plan, verified from public.profiles where id = $1", [A])).rows[0].plan === "pro");
+await as(D, () => db.query("update public.app_settings set value = '14' where key = 'trial_days'"));
+const F = "66666666-6666-4666-8666-666666666666";
+await db.exec(`insert into auth.users (id, email) values ('${F}', 'f@example.com');`);
+check("new members get the admin-set trial length", (await db.query("select trial_ends_at < now() + interval '15 days' as ok from public.profiles where id = $1", [F])).rows[0].ok);
+check("members can't see others' payments", (await as(B, () => db.query("select id from public.payments"))).rows.length === 0);
 
 console.log(failures ? `\n${failures} check(s) failed` : "\nAll checks passed");
 process.exit(failures ? 1 : 0);
