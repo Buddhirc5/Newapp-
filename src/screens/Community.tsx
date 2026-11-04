@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { CalendarCheck, Flag, Globe2, MapPin, MessageCircle, ShieldAlert, UserPlus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowUpRight, CalendarCheck, Flag, Globe2, MapPin, MessageCircle, Newspaper, ShieldAlert, UserPlus } from "lucide-react";
 import { Page } from "@/components/layout/Page";
 import { Avatar, Card, Notice, SectionHeader, Tag } from "@/components/ui/Bits";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -11,6 +11,8 @@ import { cn } from "@/lib/cn";
 import { datePartsIn, dayIn, formatLkr, relativeDay, timeIn, zonedTime, ZONES } from "@/lib/format";
 import { usePathways } from "@/lib/content";
 import { useT } from "@/lib/i18n";
+import { fetchNews, type NewsItem } from "@/lib/community";
+import { HAS_SUPABASE } from "@/lib/env";
 import { joinWaitlistRemote, requestBooking } from "@/lib/remote";
 import { useApp } from "@/store/app";
 import type { PathId } from "@/types";
@@ -40,7 +42,7 @@ const PATTERNS = [
 
 export function Community() {
   const t = useT();
-  const [tab, setTab] = useState<"mentors" | "alerts">("mentors");
+  const [tab, setTab] = useState<"news" | "mentors" | "alerts">("news");
   return (
     <Page title={t("community.title")} lead="Learn from Sri Lankans who've made the move, and help others avoid scams.">
       <div className="flex flex-col gap-6">
@@ -49,11 +51,12 @@ export function Community() {
           value={tab}
           onChange={setTab}
           options={[
+            { value: "news", label: "News" },
             { value: "mentors", label: "Mentors" },
             { value: "alerts", label: "Scam alerts" },
           ]}
         />
-        {tab === "mentors" ? <Mentors /> : <Alerts />}
+        {tab === "news" ? <News /> : tab === "mentors" ? <Mentors /> : <Alerts />}
       </div>
     </Page>
   );
@@ -381,6 +384,97 @@ function Alerts() {
           </Card>
         )}
       </section>
+    </div>
+  );
+}
+
+const NEWS_TAGS = [
+  { id: "all", label: "All" },
+  { id: "student", label: "Students" },
+  { id: "work", label: "Work" },
+  { id: "residence", label: "Residence" },
+  { id: "family", label: "Family" },
+  { id: "policy", label: "Policy" },
+];
+
+function News() {
+  const [tag, setTag] = useState("all");
+  const [items, setItems] = useState<NewsItem[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!HAS_SUPABASE) return;
+    let active = true;
+    setItems(null);
+    fetchNews(tag).then(
+      (rows) => active && setItems(rows),
+      (e: Error) => active && setError(e.message),
+    );
+    return () => {
+      active = false;
+    };
+  }, [tag]);
+
+  if (!HAS_SUPABASE)
+    return (
+      <Notice title="Live news is online only">
+        The online version collects New Zealand immigration news every few hours from the NZ Government, RNZ and Stuff.
+      </Notice>
+    );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4" role="radiogroup" aria-label="Topic">
+        {NEWS_TAGS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="radio"
+            aria-checked={tag === t.id}
+            onClick={() => setTag(t.id)}
+            className={cn("min-h-10 shrink-0 rounded-full px-4 text-subhead font-semibold", tag === t.id ? "bg-night text-paper" : "bg-surface shadow-card")}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {error && <Notice tone="warn" title="Couldn't load news">{error}</Notice>}
+      {items === null && !error && <div className="h-48 animate-pulse rounded-card bg-fill-2" />}
+      {items?.length === 0 && (
+        <Card className="flex flex-col items-center gap-2 p-8 text-center">
+          <Newspaper className="size-8 text-label-3" aria-hidden />
+          <p className="text-headline font-semibold">No stories on this topic yet</p>
+          <p className="text-subhead text-label-2">New stories are checked every three hours.</p>
+        </Card>
+      )}
+      <ul className="flex flex-col gap-3">
+        {items?.map((n) => (
+          <li key={n.id}>
+            <a href={n.url} target="_blank" rel="noreferrer" className="block rounded-tile bg-surface p-4 shadow-card hover:bg-surface-2">
+              <p className="flex items-center justify-between gap-2 text-footnote font-semibold text-label-2">
+                <span>
+                  {n.source} · {relativeDay(n.published_at)}
+                </span>
+                <ArrowUpRight className="size-4 shrink-0" aria-hidden />
+              </p>
+              <p className="mt-1 text-headline font-semibold">{n.title}</p>
+              {n.summary && <p className="mt-1 line-clamp-3 text-subhead text-label-2">{n.summary}</p>}
+              {n.tags.length > 0 && (
+                <p className="mt-2 flex flex-wrap gap-1.5">
+                  {n.tags.map((t) => (
+                    <span key={t} className="rounded-full bg-fill-2 px-2.5 py-0.5 text-caption font-medium">
+                      {t}
+                    </span>
+                  ))}
+                </p>
+              )}
+            </a>
+          </li>
+        ))}
+      </ul>
+      <p className="px-1 text-footnote text-label-2">
+        Headlines link to the original publisher. News isn't advice: check immigration.govt.nz before acting on a change.
+      </p>
     </div>
   );
 }

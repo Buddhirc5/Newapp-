@@ -10,6 +10,7 @@ import type { Lang } from "@/types";
 const EN = {
   "tab.journey": "Journey",
   "tab.paths": "Paths",
+  "tab.board": "Board",
   "tab.tools": "Tools",
   "tab.community": "Community",
   "tab.me": "Me",
@@ -32,6 +33,7 @@ const DICT: Record<Lang, Record<Key, string>> = {
   si: {
     "tab.journey": "ගමන",
     "tab.paths": "මාර්ග",
+    "tab.board": "දැන්වීම්",
     "tab.tools": "මෙවලම්",
     "tab.community": "ප්‍රජාව",
     "tab.me": "මම",
@@ -49,6 +51,7 @@ const DICT: Record<Lang, Record<Key, string>> = {
   ta: {
     "tab.journey": "பயணம்",
     "tab.paths": "வழிகள்",
+    "tab.board": "விளம்பரம்",
     "tab.tools": "கருவிகள்",
     "tab.community": "சமூகம்",
     "tab.me": "நான்",

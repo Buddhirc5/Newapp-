@@ -11,7 +11,7 @@ const FEEDS = [
 ];
 
 const RELEVANT =
-  /\b(immigra\w*|visas?|migrants?|international students?|green list|accredited employer|residence class|skilled migrant|deport\w*|citizenship|sri lank\w*|working holiday|refugees?)\b/i;
+  /\b(immigra\w*|visas?|migrants?|international students?|green list|accredited employer|residence class|skilled migrant|deport\w*|sri lank\w*|working holiday|refugees?)\b/i;
 
 const TAGS: [string, RegExp][] = [
   ["student", /\b(student|universit|study|post-study)\w*/i],
@@ -102,12 +102,23 @@ Deno.serve(async () => {
     }),
   );
 
-  if (all.length) {
-    const { error } = await supabase.from("news_items").upsert(all, { onConflict: "url", ignoreDuplicates: true });
+  // Outlets re-publish corrected stories under new URLs; skip titles we already have.
+  const key = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 48);
+  const { data: recent } = await supabase.from("news_items").select("title").gte("published_at", new Date(Date.now() - 14 * 86_400_000).toISOString());
+  const seen = new Set((recent ?? []).map((r) => key(r.title as string)));
+  const fresh = all.filter((item) => {
+    const k = key(item.title);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  if (fresh.length) {
+    const { error } = await supabase.from("news_items").upsert(fresh, { onConflict: "url", ignoreDuplicates: true });
     if (error) results.save = `error: ${error.message}`;
   }
   // Keep the feed focused on recent news.
   await supabase.from("news_items").delete().lt("published_at", new Date(Date.now() - 180 * 86_400_000).toISOString());
 
-  return new Response(JSON.stringify({ saved: all.length, feeds: results }), { headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify({ saved: fresh.length, feeds: results }), { headers: { "content-type": "application/json" } });
 });

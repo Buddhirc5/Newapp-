@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { NavLink, Navigate, Outlet, useLocation } from "react-router";
 import { motion, useReducedMotion } from "motion/react";
-import { Compass, LayoutGrid, Route, UserRound, Users, type LucideIcon } from "lucide-react";
+import { LayoutGrid, Route, Store, UserRound, Users, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { IS_PREVIEW } from "@/lib/env";
 import { tick } from "@/lib/haptics";
@@ -12,14 +12,14 @@ import { SampleBanner } from "../SampleBanner";
 
 interface Tab {
   to: string;
-  key: "journey" | "paths" | "tools" | "community" | "me";
+  key: "journey" | "board" | "tools" | "community" | "me";
   icon: LucideIcon;
   end?: boolean;
 }
 
 const TABS: Tab[] = [
   { to: "/", key: "journey", icon: Route, end: true },
-  { to: "/paths", key: "paths", icon: Compass },
+  { to: "/board", key: "board", icon: Store },
   { to: "/tools", key: "tools", icon: LayoutGrid },
   { to: "/community", key: "community", icon: Users },
   { to: "/me", key: "me", icon: UserRound },

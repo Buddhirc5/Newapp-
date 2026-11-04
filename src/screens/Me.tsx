@@ -21,6 +21,7 @@ import { copyText, saveFile } from "@/lib/platform";
 import { joinWaitlistRemote } from "@/lib/remote";
 import { signOut, useAuth } from "@/lib/sync";
 import { SignInSheet } from "@/components/SignInSheet";
+import { MemberCard } from "@/components/MemberCard";
 import { BADGES, currentStreak, journeyProgress, totalPoints } from "@/logic/progress";
 import { pickData, useApp } from "@/store/app";
 import type { Lang, Profile, ThemePref } from "@/types";
@@ -82,6 +83,8 @@ export function Me() {
             ))}
           </div>
         </Card>
+
+        <MemberCard />
 
         <section aria-labelledby="badges" className="flex flex-col gap-3">
           <div className="flex items-end justify-between px-1">

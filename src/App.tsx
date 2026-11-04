@@ -5,7 +5,8 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Toaster } from "@/components/ui/Toast";
 import { IS_PREVIEW } from "@/lib/env";
 import { loadRemoteContent } from "@/lib/content";
-import { startSync } from "@/lib/sync";
+import { loadMember } from "@/lib/community";
+import { startSync, useAuth } from "@/lib/sync";
 import { useApp } from "@/store/app";
 import { Journey } from "@/screens/Journey";
 import { NotFound } from "@/screens/NotFound";
@@ -32,6 +33,12 @@ const routes: RouteObject[] = [
       { path: "tools/documents", lazy: async () => ({ Component: (await import("@/screens/tools/Documents")).Documents }) },
       { path: "tools/occupations", lazy: async () => ({ Component: (await import("@/screens/tools/OccupationCheck")).OccupationCheck }) },
       { path: "community", lazy: async () => ({ Component: (await import("@/screens/Community")).Community }) },
+      { path: "board", lazy: async () => ({ Component: (await import("@/screens/Board")).Board }) },
+      { path: "board/new", lazy: async () => ({ Component: (await import("@/screens/PostListing")).PostListing }) },
+      { path: "board/:id", lazy: async () => ({ Component: (await import("@/screens/ListingDetail")).ListingDetail }) },
+      { path: "chats", lazy: async () => ({ Component: (await import("@/screens/Chats")).Chats }) },
+      { path: "chats/:id", lazy: async () => ({ Component: (await import("@/screens/Chats")).ChatThread }) },
+      { path: "admin", lazy: async () => ({ Component: (await import("@/screens/Admin")).Admin }) },
       { path: "me", lazy: async () => ({ Component: (await import("@/screens/Me")).Me }) },
       { path: "*", element: <NotFound /> },
     ],
@@ -47,6 +54,7 @@ function initialPreviewPath(): string {
   const map: Record<string, string> = {
     welcome: "/welcome",
     paths: "/paths",
+    board: "/board",
     tools: "/tools",
     "scam-shield": "/tools/scam-shield",
     money: "/tools/money",
@@ -81,6 +89,10 @@ function useThemeAttribute() {
 export default function App() {
   useThemeAttribute();
   useEffect(() => startSync(), []);
+  const userId = useAuth((s) => s.user?.id);
+  useEffect(() => {
+    void loadMember();
+  }, [userId]);
   useEffect(() => {
     void loadRemoteContent();
   }, []);
