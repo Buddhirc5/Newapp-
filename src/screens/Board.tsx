@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
-import { MessageCircle, Plus, Search } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router";
+import { ArrowRight, Briefcase, MessageCircle, Plus, Search } from "lucide-react";
 import { CATEGORY_ICON, ListingCard } from "@/components/ListingCard";
 import { Page } from "@/components/layout/Page";
 import { Mascot } from "@/components/Mascot";
@@ -121,6 +121,19 @@ export function Board() {
             );
           })}
         </div>
+
+        {category === "job" && (
+          <Link to="/tools/jobs" className="flex items-center gap-3 rounded-tile bg-night p-4 text-paper shadow-card transition-transform active:scale-[0.99]">
+            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-gold text-ink">
+              <Briefcase className="size-5" aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-headline font-semibold">Live NZ jobs for your field</span>
+              <span className="block text-footnote text-paper/70">Recent jobs from across New Zealand, plus searches on Seek, Trade Me and LinkedIn</span>
+            </span>
+            <ArrowRight className="size-5 shrink-0" aria-hidden />
+          </Link>
+        )}
 
         {error && <Notice tone="warn" title="Couldn't load listings">{error}</Notice>}
 
