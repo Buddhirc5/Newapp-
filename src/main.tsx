@@ -5,8 +5,11 @@ import App from "./App";
 import { IS_PREVIEW } from "@/lib/env";
 import { useApp } from "@/store/app";
 import { startMonitoring } from "@/lib/monitor";
+import { inject } from "@vercel/analytics";
 
 startMonitoring();
+// Privacy-friendly visit counts (no cookies): shows where visitors come from, e.g. Facebook groups.
+if (!IS_PREVIEW && import.meta.env.PROD) inject();
 
 // When a new version is deployed, the new service worker takes over; reload once
 // so people never keep using an old copy of the app.

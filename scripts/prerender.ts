@@ -4,7 +4,7 @@
 // plus sitemap.xml and robots.txt. Each page has its own title, description,
 // canonical URL, Open Graph tags and JSON-LD structured data, and links into
 // the app to sign up. Run by `npm run build` (vite-node scripts/prerender.ts).
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { GUIDES, type Guide } from "../src/data/guides";
 import { PATHWAYS } from "../src/data/pathways";
@@ -48,6 +48,7 @@ ul{padding-left:1.2em}li{margin:.3em 0}table{width:100%;border-collapse:collapse
 .grid{display:grid;gap:12px}@media(min-width:700px){.grid{grid-template-columns:1fr 1fr}}
 .banner{margin:36px 0 0;padding:24px;border-radius:26px;background:var(--night);color:#f5f4ed}.banner h2{margin:0 0 .3em;color:#f5f4ed}.banner p{color:#d6d4c8}
 .banner .cta{background:var(--gold);color:#1b1a14!important}
+.share{margin:32px 0 0;padding:14px 18px;border-radius:16px;background:var(--surface);font-weight:600}.share a{margin:0 4px}
 footer{border-top:1px solid var(--line);padding:24px 0 40px;font-size:14px;color:var(--muted)}footer a{color:var(--muted);margin-right:14px}
 `;
 
@@ -64,6 +65,10 @@ interface PageOpts {
 
 function page(o: PageOpts) {
   const url = `${SITE}${o.path}`;
+  const ogSlug = o.path.slice(1).replace(/\//g, "-");
+  const image = existsSync(`public/og/${ogSlug}.png`) ? `${SITE}/og/${ogSlug}.png` : OG_IMAGE;
+  const shareUrl = encodeURIComponent(`${url}?utm_source=share`);
+  const shareText = encodeURIComponent(o.title.split(" · ")[0].split(" | ")[0]);
   urls.push({ loc: url, priority: o.priority ?? 0.7 });
   const crumbs = [{ name: "KiwiPath", path: "/landing" }, ...o.crumbs];
   const ld = [
@@ -88,12 +93,15 @@ function page(o: PageOpts) {
 <meta property="og:title" content="${esc(o.title)}">
 <meta property="og:description" content="${esc(o.description)}">
 <meta property="og:url" content="${url}">
-<meta property="og:image" content="${OG_IMAGE}">
+<meta property="og:image" content="${image}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${esc(o.title.split(" · ")[0])}">
 <meta property="og:locale" content="en_NZ">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(o.title)}">
 <meta name="twitter:description" content="${esc(o.description)}">
-<meta name="twitter:image" content="${OG_IMAGE}">
+<meta name="twitter:image" content="${image}">
 <meta name="theme-color" content="#F5F4ED">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -105,6 +113,7 @@ ${ld.map((x) => `<script type="application/ld+json">${JSON.stringify(x).replace(
 <main class="wrap">
 <p class="crumbs">${crumbs.map((c, i) => (i === crumbs.length - 1 ? esc(c.name) : `<a href="${c.path}">${esc(c.name)}</a>`)).join(" › ")}</p>
 ${o.body}
+<p class="share">Share this with someone planning the move: <a href="https://wa.me/?text=${shareText}%20${shareUrl}" rel="noopener">WhatsApp</a> · <a href="https://www.facebook.com/sharer/sharer.php?u=${shareUrl}" rel="noopener">Facebook</a></p>
 <section class="banner"><h2>Plan your move with KiwiPath</h2><p>Free for your first month: a step-by-step journey, budgets in rupees, CV Studio, Scam Shield, document tracker and an AI assistant for Sri Lankans moving to New Zealand.</p><a class="cta" href="/landing">Create your free account</a></section>
 </main>
 <footer><div class="wrap"><a href="/learn">Guides</a><a href="/visa">Visa paths</a><a href="/cities">Cost of living</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><p>KiwiPath shares general information, not immigration advice. Always confirm rules on immigration.govt.nz or with a licensed immigration adviser.</p></div></footer>
@@ -155,7 +164,7 @@ for (const g of GUIDES) {
         dateModified: TODAY,
         author: { "@type": "Organization", name: "KiwiPath", url: SITE },
         publisher: { "@type": "Organization", name: "KiwiPath", logo: { "@type": "ImageObject", url: `${SITE}/pwa-512.png` } },
-        image: OG_IMAGE,
+        image: `${SITE}/og/learn-${g.slug}.png`,
         mainEntityOfPage: `${SITE}/learn/${g.slug}`,
       },
     ],

@@ -54,7 +54,7 @@ export function AppShell() {
   // An account is always required online; the offline build keeps the local welcome.
   if (HAS_SUPABASE && !IS_PREVIEW && !user) {
     if (!authReady) return null;
-    return <Navigate to="/landing" replace />;
+    return <Navigate to={`/landing${location.search}`} replace />;
   }
   if (!HAS_SUPABASE && !onboarded && !IS_PREVIEW) return <Navigate to="/welcome" replace />;
 
