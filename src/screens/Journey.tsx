@@ -49,7 +49,7 @@ export function Journey() {
     <Page
       title="Journey"
       hero={
-        <div className="flex flex-col gap-4 pt-1 pb-4">
+        <div className="flex flex-col gap-4 pt-4 pb-4">
           <div className="flex items-center gap-3">
             <Link to="/me" aria-label="Your profile" className="shrink-0">
               <Avatar name={profile.name || "You"} size={44} tint="lavender" />
@@ -108,7 +108,7 @@ export function Journey() {
                 <h2 className="type-display pr-16 text-title3 leading-snug sm:pr-24 sm:text-title2">{next.task.title}</h2>
                 <p className="line-clamp-2 max-w-[34rem] text-subhead opacity-80">{next.task.detail}</p>
                 <div className="mt-1 flex gap-2">
-                  <Button size="sm" variant="dark" icon={<Check className="size-4" aria-hidden />} onClick={() => completeTask(next.task)}>
+                  <Button size="sm" variant="dark" className="shrink-0 whitespace-nowrap" icon={<Check className="size-4" aria-hidden />} onClick={() => completeTask(next.task)}>
                     Mark done
                   </Button>
                   {next.task.link &&

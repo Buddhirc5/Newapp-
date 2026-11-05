@@ -42,6 +42,9 @@ export function Page({ title, lead, back, actions, children, hero, className, wi
       <header
         className={cn(
           "sticky z-30 transition-[background-color,box-shadow] duration-200 gutter-x",
+          // Top-level screens have no back button: the bar overlays the page instead of leaving an empty gap.
+          !back && !actions && "-mb-14",
+          !back && !actions && !scrolled && "pointer-events-none",
           scrolled ? "bg-material shadow-[0_0.5px_0_var(--sep)] backdrop-blur-xl backdrop-saturate-150" : "bg-transparent",
         )}
         style={{ top: "env(safe-area-inset-top, 0px)" }}
@@ -75,7 +78,7 @@ export function Page({ title, lead, back, actions, children, hero, className, wi
       <div className="gutter-x">
         <div className={cn("mx-auto pb-36 lg:pb-16", wide ? "max-w-5xl" : "max-w-2xl")}>
           {hero ?? (
-            <div className="pt-1 pb-5">
+            <div className={cn("pb-5", !back && !actions ? "pt-4" : "pt-1")}>
               <h1 className="type-display text-large-title">{title}</h1>
               {lead && <div className="mt-2 max-w-[38rem] text-callout text-label-2">{lead}</div>}
             </div>

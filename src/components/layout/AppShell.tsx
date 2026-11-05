@@ -73,9 +73,9 @@ export function AppShell() {
         <TrialBanner />
         <motion.div
           key={location.pathname}
-          initial={reduce ? false : { opacity: 0, y: 8 }}
+          initial={reduce ? false : { opacity: 0.4, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+          transition={{ duration: 0.14, ease: "easeOut" }}
         >
           <Outlet />
         </motion.div>

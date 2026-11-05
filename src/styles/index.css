@@ -326,6 +326,14 @@
     text-wrap: pretty;
   }
 
+  a,
+  button,
+  input,
+  label,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
   button,
   [role="button"] {
     cursor: pointer;

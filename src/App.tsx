@@ -136,8 +136,27 @@ if (!IS_PREVIEW) {
   });
 }
 
+/** Loads every screen's code in the background after start-up, so taps open screens instantly. */
+function prefetchScreens() {
+  const walk = (list: RouteObject[]) => {
+    for (const r of list) {
+      if (typeof r.lazy === "function") void (r.lazy as () => Promise<unknown>)().catch(() => undefined);
+      if (r.children) walk(r.children);
+    }
+  };
+  const run = () => walk(routes);
+  const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback;
+  if (idle) idle(run);
+  else setTimeout(run, 1500);
+}
+
 export default function App() {
   useThemeAttribute();
+  useEffect(() => {
+    // Skip on very slow or data-saver connections.
+    const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    if (!IS_PREVIEW && !conn?.saveData && !/2g/.test(conn?.effectiveType ?? "")) prefetchScreens();
+  }, []);
   useEffect(() => startSync(), []);
   const userId = useAuth((s) => s.user?.id);
   useEffect(() => {
