@@ -18,7 +18,7 @@ const CONTROLS: { title: string; detail: string }[] = [
   { title: "AI limits enforced on the server", detail: "Each AI request is reserved against the member's daily limit before Claude is called, so parallel requests can't go over." },
   { title: "Rate limits", detail: "Hourly caps on listings, messages, reports, bookings, meetups and agency suggestions stop flooding and spam." },
   { title: "Browser protections", detail: "Content-Security-Policy, no framing, no MIME sniffing, and camera and microphone limited to KiwiPath." },
-  { title: "Website allow-list", detail: "Backend functions only answer browsers on kiwipath-nz.vercel.app (plus ALLOWED_ORIGINS)." },
+  { title: "Website allow-list", detail: "Backend functions only answer browsers on kiwipath.space (plus ALLOWED_ORIGINS)." },
   { title: "Uploads checked by content", detail: "Documents are checked by their real file type and size, stored privately, and deleted right after the AI check." },
   { title: "Signed payments", detail: "PayHere notifications must carry a valid signature and the exact amount and currency of the order." },
 ];

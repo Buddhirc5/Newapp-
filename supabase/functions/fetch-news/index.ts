@@ -101,7 +101,7 @@ Deno.serve(withCors(async () => {
   await Promise.all(
     FEEDS.map(async (feed) => {
       try {
-        const res = await fetch(feed.url, { headers: { "user-agent": "KiwiPath news reader (+https://kiwipath-nz.vercel.app)" }, signal: AbortSignal.timeout(15000) });
+        const res = await fetch(feed.url, { headers: { "user-agent": "KiwiPath news reader (+https://www.kiwipath.space)" }, signal: AbortSignal.timeout(15000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const items = parse(await res.text(), feed.source);
         all.push(...items);

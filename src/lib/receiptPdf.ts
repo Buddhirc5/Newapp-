@@ -41,7 +41,7 @@ export async function receiptPdf(r: ReceiptData): Promise<Blob> {
   doc.text("KiwiPath", M, 18);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.text("Colombo to Aotearoa · kiwipath-nz.vercel.app", M, 25);
+  doc.text("Colombo to Aotearoa · kiwipath.space", M, 25);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
   doc.text("RECEIPT", W - M, 18, { align: "right" });

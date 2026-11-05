@@ -1,11 +1,11 @@
 // Origin allow-list for KiwiPath Edge Functions that browsers call.
 // Source of truth: supabase/functions/_shared/cors.ts (copied by `npm run sync:functions`).
 
-// Browsers may call these functions only from KiwiPath itself (and localhost
+// Browsers may call these functions only from KiwiPath itself (kiwipath.space, plus the old vercel.app address while it redirects) (and localhost
 // while developing). Extra origins, such as a custom domain or a Vercel preview,
 // can be added as a comma-separated list in the ALLOWED_ORIGINS secret. A
 // pattern like *.vercel.app would let anyone's Vercel project in.
-const ORIGIN_RE = /^https:\/\/kiwipath-nz\.vercel\.app$|^http:\/\/localhost:\d+$/;
+const ORIGIN_RE = /^https:\/\/(www\.)?kiwipath\.space$|^https:\/\/kiwipath-nz\.vercel\.app$|^http:\/\/localhost:\d+$/;
 
 export function allowedOrigin(origin: string | null): string | null {
   if (!origin) return null;

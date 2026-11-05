@@ -50,7 +50,7 @@ Deno.serve(withCors(async (req) => {
 
   // Only send members back to KiwiPath itself, never to another site.
   const requested = body.returnUrl ? (() => { try { return new URL(body.returnUrl).origin; } catch { return null; } })() : null;
-  const site = allowedOrigin(requested) ?? "https://kiwipath-nz.vercel.app";
+  const site = allowedOrigin(requested) ?? "https://www.kiwipath.space";
   const sandbox = Deno.env.get("PAYHERE_SANDBOX") === "true";
   const hash = await md5Upper(merchantId + order.id + amount + "LKR" + (await md5Upper(secret)));
 
