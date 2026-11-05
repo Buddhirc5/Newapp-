@@ -5,6 +5,8 @@ import { readJson, writeJson } from "./storage";
 export interface Rate {
   /** Sri Lankan rupees for one New Zealand dollar. */
   lkrPerNzd: number;
+  /** Sri Lankan rupees for one US dollar, when the feed includes it. */
+  lkrPerUsd?: number;
   /** ISO date the rate was published. */
   asOf: string;
   live: boolean;
@@ -42,7 +44,8 @@ export async function fetchRate(signal?: AbortSignal): Promise<Rate> {
       const asOf = body.time_last_update_unix
         ? new Date(body.time_last_update_unix * 1000).toISOString().slice(0, 10)
         : new Date().toISOString().slice(0, 10);
-      const rate: Cached = { lkrPerNzd: lkr, asOf, live: true, fetchedAt: Date.now() };
+      const usd = body.rates?.USD;
+      const rate: Cached = { lkrPerNzd: lkr, lkrPerUsd: usd && usd > 0 ? lkr / usd : undefined, asOf, live: true, fetchedAt: Date.now() };
       writeJson(CACHE_KEY, rate);
       return rate;
     } catch {

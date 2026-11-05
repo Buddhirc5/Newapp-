@@ -152,13 +152,14 @@ export function Select({
   id,
   className,
   wrapClassName,
+  hideLabel,
   children,
   ...rest
-}: SelectHTMLAttributes<HTMLSelectElement> & { label: string; hint?: ReactNode; wrapClassName?: string }) {
+}: SelectHTMLAttributes<HTMLSelectElement> & { label: string; hint?: ReactNode; wrapClassName?: string; hideLabel?: boolean }) {
   const auto = useId();
   const fieldId = id ?? auto;
   return (
-    <FieldShell label={label} hint={hint} id={fieldId} className={wrapClassName}>
+    <FieldShell label={label} hint={hint} id={fieldId} className={wrapClassName} hideLabel={hideLabel}>
       <select id={fieldId} className={cn(FIELD, "min-h-12 appearance-none bg-[length:12px] bg-[right_1rem_center] bg-no-repeat pr-10", className)} style={{ backgroundImage: "var(--chevron)" }} {...rest}>
         {children}
       </select>

@@ -911,3 +911,32 @@ export async function deleteMyAccount(): Promise<void> {
   }
   await sb.auth.signOut({ scope: "local" });
 }
+
+export interface MyPayment {
+  id: string;
+  receipt_no: number;
+  provider: string;
+  provider_ref: string | null;
+  kind: string;
+  plan: string | null;
+  amount: number;
+  currency: string;
+  status: string;
+  period_end: string | null;
+  created_at: string;
+}
+
+/** The signed-in member's successful charges, newest first. */
+export async function fetchMyReceipts(): Promise<MyPayment[]> {
+  const sb = await client();
+  requireUser();
+  const { data, error } = await sb
+    .from("payments")
+    .select("id, receipt_no, provider, provider_ref, kind, plan, amount, currency, status, period_end, created_at")
+    .eq("status", "paid")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  // PayHere: the checkout row and each charge row are both "paid"; receipts are per charge.
+  return ((data ?? []) as MyPayment[]).filter((p) => p.provider !== "payhere" || (p.provider_ref ?? "").startsWith("pay:"));
+}

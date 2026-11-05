@@ -1,79 +1,71 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import {
-  BadgeCheck,
-  Building2,
   CreditCard,
   Flag,
   KeyRound,
+  LogOut,
+  Maximize2,
+  Minimize2,
   LayoutDashboard,
   Newspaper,
-  Search,
   Settings,
   ShieldCheck,
+  Sparkles,
   Users,
   type LucideIcon,
 } from "lucide-react";
 import { Page } from "@/components/layout/Page";
+import { Mascot } from "@/components/Mascot";
+import { AiUsage } from "@/screens/admin/AiUsage";
+import { Pills } from "@/screens/admin/charts";
+import { Dashboard } from "@/screens/admin/Dashboard";
+import { Members } from "@/screens/admin/Members";
+import { Revenue } from "@/screens/admin/Revenue";
+import { SecurityPage } from "@/screens/admin/SecurityPage";
+import { SettingsPage } from "@/screens/admin/SettingsPage";
 import { GoogleMark } from "@/screens/Landing";
 import { Card, Notice, SectionHeader, Tag } from "@/components/ui/Bits";
 import { Button } from "@/components/ui/Button";
-import { Select, Switch, TextField } from "@/components/ui/Controls";
-import { Sheet } from "@/components/ui/Sheet";
+import { TextField } from "@/components/ui/Controls";
 import { toast } from "@/components/ui/Toast";
 import type { Listing } from "@/data/board";
 import { mfaState, startEnrolment, verifyCode, type MfaState } from "@/lib/adminAuth";
 import { cn } from "@/lib/cn";
 import {
-  adminMembers,
   adminNews,
   adminOrders,
-  adminStats,
-  adminUpdateMember,
   fetchAgencies,
   fetchHiddenListings,
   fetchOpenReports,
-  fetchPayments,
   fetchPendingApplications,
-  fetchSettings,
-  loadMember,
   refreshNews,
   resolveReports,
   reviewAgency,
   reviewApplication,
   setNewsHidden,
   setOrderStatus,
-  saveSetting,
   useMember,
-  fetchAudit,
-  fetchPaymentEvents,
-  type AuditRow,
-  type PaymentEventRow,
-  type AdminMember,
   type Agency,
   type GigOrder,
   type ProviderApplication,
-  type PaymentRow,
   type ReportRow,
-  type Setting,
 } from "@/lib/community";
 import { HAS_SUPABASE } from "@/lib/env";
 import { formatNumber, relativeDay } from "@/lib/format";
 import { signInWithGoogle, signInWithPassword, signOut, useAuth, useGoogleEnabled } from "@/lib/sync";
 import { Captcha, TURNSTILE_SITE_KEY } from "@/components/Captcha";
 
-type Tab = "overview" | "members" | "moderation" | "agencies" | "news" | "experts" | "payments" | "security" | "settings";
+type Tab = "dashboard" | "members" | "revenue" | "ai" | "community" | "security" | "settings";
 
-const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "members", label: "Members", icon: Users },
-  { id: "moderation", label: "Moderation", icon: Flag },
-  { id: "agencies", label: "Agencies", icon: Building2 },
-  { id: "news", label: "News", icon: Newspaper },
-  { id: "experts", label: "Experts", icon: BadgeCheck },
-  { id: "payments", label: "Payments", icon: CreditCard },
-  { id: "security", label: "Security", icon: ShieldCheck },
-  { id: "settings", label: "Settings", icon: Settings },
+const TABS: { id: Tab; label: string; heading: string; icon: LucideIcon }[] = [
+  { id: "dashboard", label: "Dashboard", heading: "Pulse", icon: LayoutDashboard },
+  { id: "members", label: "Members", heading: "Members", icon: Users },
+  { id: "revenue", label: "Revenue", heading: "Revenue", icon: CreditCard },
+  { id: "ai", label: "AI usage", heading: "AI usage", icon: Sparkles },
+  { id: "community", label: "Community", heading: "Community", icon: Flag },
+  { id: "security", label: "Security", heading: "Security", icon: ShieldCheck },
+  { id: "settings", label: "Settings", heading: "Settings", icon: Settings },
 ];
 
 export function Admin() {
@@ -105,7 +97,7 @@ export function Admin() {
         <EnrolBanner onEnrolled={refreshMfa} />
       </div>
     );
-  else body = <Console />;
+  else return <Console />;
 
   return (
     <Page title="Admin" back={{ to: "/me", label: "Me" }} wide>
@@ -272,37 +264,97 @@ function MfaCode({ factorId, onDone }: { factorId: string; onDone: () => void })
 }
 
 function Console() {
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>("dashboard");
+  const [community, setCommunity] = useState<"moderation" | "experts" | "agencies" | "news">("moderation");
+  const user = useAuth((s) => s.user);
+  const go = (t: string) => setTab(t as Tab);
+  const [full, setFull] = useState(false);
+  useEffect(() => {
+    const on = () => setFull(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", on);
+    return () => document.removeEventListener("fullscreenchange", on);
+  }, []);
+  const current = TABS.find((t) => t.id === tab)!;
+
   return (
-    <div className="flex flex-col gap-5 lg:flex-row">
-      <nav aria-label="Admin sections" className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 lg:mx-0 lg:w-52 lg:shrink-0 lg:flex-col lg:px-0">
-        {TABS.map((t) => (
+    <div className="min-h-dvh bg-bg pb-16">
+      <header className="sticky top-0 z-30 px-3 pt-3 sm:px-5">
+        <div className="mx-auto flex max-w-[1500px] items-center gap-2 rounded-[1.6rem] bg-ink p-2 text-paper shadow-float dark:bg-night-2">
+          <Link to="/" className="flex shrink-0 items-center gap-2 rounded-full py-1 pr-3 pl-2" aria-label="KiwiPath home">
+            <Mascot className="size-8" pose="stand" animate={false} />
+            <span className="type-display hidden text-headline tracking-tight sm:inline">KIWIPATH</span>
+          </Link>
+          <nav aria-label="Admin sections" className="no-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                aria-current={tab === t.id ? "page" : undefined}
+                className={cn(
+                  "inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-footnote font-bold transition-colors",
+                  tab === t.id ? "bg-paper text-ink" : "text-paper/80 hover:bg-paper/10 hover:text-paper",
+                )}
+              >
+                <t.icon className="size-4 lg:hidden" aria-hidden />
+                {t.label}
+              </button>
+            ))}
+          </nav>
+          <span className="hidden items-center gap-1.5 px-2 text-caption text-paper/70 xl:inline-flex">
+            <span className="size-1.5 rounded-full bg-green" aria-hidden />
+            {user?.email ?? "admin"}
+          </span>
           <button
-            key={t.id}
             type="button"
-            onClick={() => setTab(t.id)}
-            aria-current={tab === t.id ? "page" : undefined}
-            className={cn(
-              "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 text-subhead font-semibold lg:rounded-xl",
-              tab === t.id ? "bg-night text-paper" : "bg-surface shadow-card hover:bg-surface-2 lg:bg-transparent lg:shadow-none",
-            )}
+            aria-label={full ? "Exit full screen" : "Full screen"}
+            title={full ? "Exit full screen" : "Full screen"}
+            onClick={() => (full ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => undefined)}
+            className="hidden size-10 shrink-0 place-items-center rounded-full bg-paper/10 hover:bg-paper/20 md:grid"
           >
-            <t.icon className="size-4" aria-hidden />
-            {t.label}
+            {full ? <Minimize2 className="size-4" aria-hidden /> : <Maximize2 className="size-4" aria-hidden />}
           </button>
-        ))}
-      </nav>
-      <div className="min-w-0 flex-1">
-        {tab === "overview" && <Overview />}
+          <Link to="/" className="hidden min-h-10 shrink-0 items-center rounded-full bg-paper px-4 text-footnote font-bold text-ink md:inline-flex">
+            Member view
+          </Link>
+          <button type="button" aria-label="Sign out" title="Sign out" onClick={() => void signOut()} className="grid size-10 shrink-0 place-items-center rounded-full bg-paper/10 hover:bg-paper/20">
+            <LogOut className="size-4" aria-hidden />
+          </button>
+        </div>
+      </header>
+
+      <main className="mx-auto flex max-w-[1500px] flex-col gap-5 px-3 pt-6 sm:px-5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h1 className="type-display text-[clamp(2rem,5vw,3.2rem)] leading-none tracking-tight uppercase">{current.heading}</h1>
+          {tab === "community" && (
+            <Pills
+              label="Community section"
+              value={community}
+              onChange={setCommunity}
+              options={[
+                { value: "moderation", label: "Reports" },
+                { value: "experts", label: "Experts" },
+                { value: "agencies", label: "Agencies" },
+                { value: "news", label: "News" },
+              ]}
+            />
+          )}
+        </div>
+        {tab === "dashboard" && <Dashboard go={go} />}
         {tab === "members" && <Members />}
-        {tab === "moderation" && <Moderation />}
-        {tab === "agencies" && <AgencyReview />}
-        {tab === "news" && <NewsAdmin />}
-        {tab === "experts" && <ExpertsAdmin />}
-        {tab === "payments" && <Payments />}
-        {tab === "security" && <SecurityPanel />}
-        {tab === "settings" && <SettingsPanel />}
-      </div>
+        {tab === "revenue" && <Revenue />}
+        {tab === "ai" && <AiUsage go={go} />}
+        {tab === "community" && (
+          <div className="max-w-4xl">
+            {community === "moderation" && <Moderation />}
+            {community === "experts" && <ExpertsAdmin />}
+            {community === "agencies" && <AgencyReview />}
+            {community === "news" && <NewsAdmin />}
+          </div>
+        )}
+        {tab === "security" && <SecurityPage />}
+        {tab === "settings" && <SettingsPage />}
+      </main>
     </div>
   );
 }
@@ -349,248 +401,6 @@ function EnrolBanner({ onEnrolled }: { onEnrolled: () => void }) {
   );
 }
 
-const STAGE_LABEL: Record<string, string> = {
-  exploring: "Exploring",
-  preparing: "Preparing",
-  applying: "Applying",
-  visa: "Visa stage",
-  arrived: "Arrived",
-  settled: "Settled",
-};
-
-function Overview() {
-  const [stats, setStats] = useState<Record<string, number | Record<string, number>> | null>(null);
-  useEffect(() => {
-    adminStats().then(setStats, (e: Error) => toast(e.message, "warn"));
-  }, []);
-  if (!stats) return <div className="h-60 animate-pulse rounded-card bg-fill-2" />;
-  const n = (k: string) => Number(stats[k] ?? 0);
-  const stages = (stats.stages ?? {}) as Record<string, number>;
-  const total = Object.values(stages).reduce((a, b) => a + b, 0) || 1;
-  const tiles = [
-    { label: "Members", value: n("members"), sub: `+${n("new_7d")} this week` },
-    { label: "In Sri Lanka", value: n("in_lk"), sub: `${n("in_nz")} in New Zealand` },
-    { label: "On free month", value: n("on_trial"), sub: `${n("pro")} Main · ${n("ultra")} Ultra` },
-    { label: "Active listings", value: n("listings"), sub: `${n("hidden")} hidden` },
-    { label: "Open reports", value: n("open_reports"), sub: `${n("pending_agencies")} agencies to review` },
-    { label: "Group messages", value: n("messages_7d"), sub: "last 7 days" },
-    { label: "Live sessions", value: n("gigs"), sub: `${n("pending_providers")} providers to verify` },
-    { label: "Bookings", value: n("bookings_30d"), sub: "last 30 days" },
-    { label: "Document checks", value: n("ai_checks_7d"), sub: "last 7 days" },
-  ];
-  return (
-    <div className="flex flex-col gap-5">
-      <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        {tiles.map((t) => (
-          <li key={t.label}>
-            <Card className="p-4">
-              <p className="text-footnote font-semibold text-label-2">{t.label}</p>
-              <p className="type-display mt-1 text-title1 tabular">{formatNumber(t.value)}</p>
-              <p className="text-footnote text-label-3">{t.sub}</p>
-            </Card>
-          </li>
-        ))}
-      </ul>
-      <Card className="p-5">
-        <p className="text-headline font-semibold">Where members are</p>
-        <div className="mt-3 flex h-4 w-full gap-[2px] overflow-hidden rounded-full" role="img" aria-label="Members by stage">
-          {Object.entries(stages).map(([stage, count], i) => (
-            <span key={stage} style={{ width: `${(count / total) * 100}%`, background: `var(--chart-${(i % 3) + 1})`, opacity: 1 - Math.floor(i / 3) * 0.35 }} />
-          ))}
-        </div>
-        <ul className="mt-3 grid grid-cols-2 gap-2 text-subhead sm:grid-cols-3">
-          {Object.entries(stages).map(([stage, count], i) => (
-            <li key={stage} className="flex items-center gap-2">
-              <span className="size-3 rounded-[3px]" style={{ background: `var(--chart-${(i % 3) + 1})`, opacity: 1 - Math.floor(i / 3) * 0.35 }} aria-hidden />
-              {STAGE_LABEL[stage] ?? stage}
-              <span className="ml-auto font-semibold tabular">{count}</span>
-            </li>
-          ))}
-        </ul>
-      </Card>
-      <Button
-        variant="tinted"
-        className="self-start"
-        icon={<Newspaper className="size-5" aria-hidden />}
-        onClick={() => refreshNews().then((n) => toast(n ? `${n} new stories added` : "No new stories right now"), () => toast("Couldn't fetch news. Try again.", "warn"))}
-      >
-        Fetch immigration news now
-      </Button>
-    </div>
-  );
-}
-
-function Members() {
-  const [q, setQ] = useState("");
-  const [rows, setRows] = useState<AdminMember[] | null>(null);
-  const [situation, setSituation] = useState("all");
-  const [plan, setPlan] = useState("all");
-  const [open, setOpen] = useState<AdminMember | null>(null);
-
-  const load = useCallback((search: string) => adminMembers(search).then(setRows, (e: Error) => toast(e.message, "warn")), []);
-  useEffect(() => {
-    const id = window.setTimeout(() => void load(q), 300);
-    return () => window.clearTimeout(id);
-  }, [q, load]);
-
-  const shown = useMemo(() => (rows ?? []).filter((r) => (situation === "all" || r.situation === situation) && (plan === "all" || r.plan === plan)), [rows, situation, plan]);
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 md:flex-row">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-label-3" aria-hidden />
-          <label htmlFor="admin-q" className="sr-only">
-            Search members
-          </label>
-          <input
-            id="admin-q"
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search name or email"
-            className="min-h-12 w-full rounded-full bg-surface py-3 pr-4 pl-12 text-body shadow-card outline-none ring-teal-ink/60 focus:ring-2"
-          />
-        </div>
-        <Select label="Where" value={situation} onChange={(e) => setSituation(e.target.value)} wrapClassName="md:w-44 [&>label]:sr-only">
-          <option value="all">Everywhere</option>
-          <option value="in_lk">In Sri Lanka</option>
-          <option value="in_nz">In New Zealand</option>
-          <option value="elsewhere">Elsewhere</option>
-        </Select>
-        <Select label="Plan" value={plan} onChange={(e) => setPlan(e.target.value)} wrapClassName="md:w-36 [&>label]:sr-only">
-          <option value="all">All plans</option>
-          <option value="trial">Trial</option>
-          <option value="free">Free</option>
-          <option value="pro">Main</option>
-          <option value="ultra">Ultra</option>
-        </Select>
-      </div>
-      {rows === null ? (
-        <div className="h-60 animate-pulse rounded-card bg-fill-2" />
-      ) : (
-        <>
-          <p className="px-1 text-footnote text-label-2">{shown.length} members</p>
-          <div className="hidden overflow-hidden rounded-tile bg-surface shadow-card md:block">
-            <table className="w-full text-left text-subhead">
-              <thead className="bg-fill text-footnote text-label-2">
-                <tr>
-                  <th className="px-4 py-2.5 font-semibold">Member</th>
-                  <th className="px-3 py-2.5 font-semibold">Where</th>
-                  <th className="px-3 py-2.5 font-semibold">Stage</th>
-                  <th className="px-3 py-2.5 font-semibold">Plan</th>
-                  <th className="px-3 py-2.5 font-semibold">Last seen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((r) => (
-                  <tr key={r.id} onClick={() => setOpen(r)} className="cursor-pointer border-t border-sep hover:bg-fill">
-                    <td className="px-4 py-3">
-                      <p className="flex items-center gap-1 font-semibold">
-                        {r.display_name} {r.verified && <BadgeCheck className="size-3.5 text-teal-ink" aria-label="Verified" />}
-                      </p>
-                      <p className="text-footnote text-label-2">{r.email}</p>
-                    </td>
-                    <td className="px-3 py-3">{r.situation === "in_nz" ? "NZ" : r.situation === "in_lk" ? "Sri Lanka" : "Other"} · {r.city || "—"}</td>
-                    <td className="px-3 py-3">{STAGE_LABEL[r.stage] ?? r.stage}</td>
-                    <td className="px-3 py-3">
-                      <Tag tint={r.plan === "pro" || r.plan === "ultra" ? "gold" : r.plan === "trial" ? "malibu" : "lavender"} solid={false} className="text-caption">
-                        {r.plan}
-                      </Tag>
-                    </td>
-                    <td className="px-3 py-3 text-label-2">{r.last_sign_in_at ? relativeDay(r.last_sign_in_at) : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <ul className="flex flex-col gap-2 md:hidden">
-            {shown.map((r) => (
-              <li key={r.id}>
-                <button type="button" onClick={() => setOpen(r)} className="flex w-full flex-col gap-0.5 rounded-tile bg-surface p-4 text-left shadow-card">
-                  <span className="text-headline font-semibold">{r.display_name}</span>
-                  <span className="text-footnote text-label-2">{r.email}</span>
-                  <span className="text-footnote">
-                    {STAGE_LABEL[r.stage] ?? r.stage} · {r.plan} · {r.city || "no city"}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-      <MemberSheet member={open} onClose={() => setOpen(null)} onSaved={() => void load(q)} />
-    </div>
-  );
-}
-
-function MemberSheet({ member, onClose, onSaved }: { member: AdminMember | null; onClose: () => void; onSaved: () => void }) {
-  const [draft, setDraft] = useState<AdminMember | null>(member);
-  useEffect(() => setDraft(member), [member]);
-  if (!draft) return <Sheet open={false} onClose={onClose} title="">{null}</Sheet>;
-  const save = async () => {
-    try {
-      await adminUpdateMember(draft.id, { plan: draft.plan, verified: draft.verified, role: draft.role, stage: draft.stage, trial_ends_at: draft.trial_ends_at });
-      toast("Member updated");
-      onSaved();
-      onClose();
-    } catch (e) {
-      toast((e as Error).message, "warn");
-    }
-  };
-  return (
-    <Sheet open={member !== null} onClose={onClose} title={draft.display_name} description={draft.email} size="tall" footer={<Button block onClick={save}>Save changes</Button>}>
-      <div className="flex flex-col gap-4">
-        <dl className="grid grid-cols-2 gap-3 text-subhead">
-          {[
-            ["Joined", relativeDay(draft.created_at)],
-            ["Path", draft.path],
-            ["City", draft.city || "—"],
-            ["Listings", String(draft.listings)],
-            ["Groups", String(draft.groups)],
-            ["Interests", draft.interests.join(", ") || "—"],
-          ].map(([k, v]) => (
-            <div key={k} className="rounded-xl bg-fill px-3 py-2">
-              <dt className="text-caption text-label-2">{k}</dt>
-              <dd className="font-semibold">{v}</dd>
-            </div>
-          ))}
-        </dl>
-        <Select label="Plan" value={draft.plan} onChange={(e) => setDraft({ ...draft, plan: e.target.value })}>
-          <option value="trial">Trial</option>
-          <option value="free">Free</option>
-          <option value="pro">Main</option>
-          <option value="ultra">Ultra</option>
-        </Select>
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-subhead">
-            Trial ends <b>{new Date(draft.trial_ends_at).toLocaleDateString("en-NZ")}</b>
-          </p>
-          <Button size="sm" variant="tinted" onClick={() => setDraft({ ...draft, trial_ends_at: new Date(Math.max(Date.now(), Date.parse(draft.trial_ends_at)) + 30 * 86_400_000).toISOString() })}>
-            +30 days
-          </Button>
-        </div>
-        <Select label="Role" value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value })}>
-          <option value="planner">Planner</option>
-          <option value="newcomer">Newcomer</option>
-          <option value="helper">Helper</option>
-          <option value="provider">Verified provider</option>
-        </Select>
-        <Select label="Stage" value={draft.stage} onChange={(e) => setDraft({ ...draft, stage: e.target.value })}>
-          {Object.entries(STAGE_LABEL).map(([v, l]) => (
-            <option key={v} value={v}>
-              {l}
-            </option>
-          ))}
-        </Select>
-        <div className="flex items-center justify-between rounded-tile bg-surface px-4 py-3 shadow-card">
-          <span className="text-body font-semibold">Verified badge</span>
-          <Switch checked={draft.verified} onChange={(verified) => setDraft({ ...draft, verified })} label="Verified badge" />
-        </div>
-      </div>
-    </Sheet>
-  );
-}
 
 function Moderation() {
   const [reports, setReports] = useState<ReportRow[]>([]);
@@ -818,150 +628,6 @@ function ExpertsAdmin() {
             )}
           </Card>
         ))}
-      </section>
-    </div>
-  );
-}
-
-function Payments() {
-  const [rows, setRows] = useState<PaymentRow[] | null>(null);
-  useEffect(() => {
-    fetchPayments().then(setRows, () => setRows([]));
-  }, []);
-  if (!rows) return <div className="h-40 animate-pulse rounded-card bg-fill-2" />;
-  return (
-    <div className="flex flex-col gap-4">
-      {rows.length === 0 ? (
-        <Notice title="No payments yet">
-          Payments appear here once a gateway is connected. Each successful payment, renewal and refund is written to the payments table by the gateway's webhook.
-        </Notice>
-      ) : (
-        <div className="overflow-x-auto rounded-tile bg-surface shadow-card">
-          <table className="w-full min-w-[34rem] text-left text-subhead">
-            <thead className="bg-fill text-footnote text-label-2">
-              <tr>
-                <th className="px-4 py-2.5">Date</th>
-                <th className="px-3 py-2.5">Type</th>
-                <th className="px-3 py-2.5">Provider</th>
-                <th className="px-3 py-2.5 text-right">Amount</th>
-                <th className="px-3 py-2.5">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((p) => (
-                <tr key={p.id} className="border-t border-sep">
-                  <td className="px-4 py-3">{new Date(p.created_at).toLocaleDateString("en-NZ")}</td>
-                  <td className="px-3 py-3">{p.kind}</td>
-                  <td className="px-3 py-3">{p.provider}</td>
-                  <td className="px-3 py-3 text-right tabular">
-                    {p.currency} {formatNumber(p.amount)}
-                  </td>
-                  <td className="px-3 py-3">{p.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SettingsPanel() {
-  const [rows, setRows] = useState<Setting[] | null>(null);
-  const [draft, setDraft] = useState<Record<string, string>>({});
-  useEffect(() => {
-    fetchSettings().then((s) => {
-      setRows(s);
-      setDraft(Object.fromEntries(s.map((x) => [x.key, JSON.stringify(x.value)])));
-    }, () => setRows([]));
-  }, []);
-  if (!rows) return <div className="h-40 animate-pulse rounded-card bg-fill-2" />;
-  return (
-    <div className="flex flex-col gap-3">
-      {rows.map((s) => (
-        <Card key={s.key} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-end">
-          <div className="min-w-0 flex-1">
-            <TextField label={s.description || s.key} hint={s.key} value={draft[s.key] ?? ""} onChange={(e) => setDraft({ ...draft, [s.key]: e.target.value })} />
-          </div>
-          <Button
-            size="md"
-            variant="tinted"
-            onClick={async () => {
-              try {
-                await saveSetting(s.key, JSON.parse(draft[s.key]));
-                toast("Saved");
-                void loadMember();
-              } catch {
-                toast("Enter a number, true/false, or text in quotes", "warn");
-              }
-            }}
-          >
-            Save
-          </Button>
-        </Card>
-      ))}
-      <p className="px-1 text-footnote text-label-2">AI document review stays off until an AI API key is added to the Supabase Edge Function secrets.</p>
-    </div>
-  );
-}
-
-function SecurityPanel() {
-  const [audit, setAudit] = useState<AuditRow[] | null>(null);
-  const [events, setEvents] = useState<PaymentEventRow[]>([]);
-  useEffect(() => {
-    fetchAudit().then(setAudit, (e: Error) => (toast(e.message, "warn"), setAudit([])));
-    fetchPaymentEvents().then(setEvents, () => undefined);
-  }, []);
-  const rejected = events.filter((e) => !e.accepted);
-  return (
-    <div className="flex flex-col gap-6">
-      <section className="flex flex-col gap-3" aria-labelledby="audit">
-        <SectionHeader id="audit" title="Admin activity" />
-        <p className="px-1 text-footnote text-label-2">Every change an admin makes is recorded here and can't be edited or deleted from the app.</p>
-        {!audit && <div className="h-32 animate-pulse rounded-card bg-fill-2" />}
-        {audit?.length === 0 && <p className="px-1 text-subhead text-label-2">No admin changes yet.</p>}
-        <ul className="flex flex-col gap-2">
-          {audit?.map((a) => (
-            <li key={a.id}>
-              <Card className="p-4">
-                <p className="text-callout font-semibold">
-                  {a.action} · {a.target_table}
-                  {a.target_id ? <span className="font-normal text-label-2"> · {a.target_id.slice(0, 8)}</span> : null}
-                </p>
-                <p className="text-footnote text-label-2">
-                  {a.actor_email ?? (a.actor ? `admin ${a.actor.slice(0, 8)}` : "admin")} · {new Date(a.created_at).toLocaleString("en-NZ")}
-                </p>
-                {Object.keys(a.changes).length > 0 && (
-                  <p className="mt-1 text-footnote break-words">
-                    {Object.entries(a.changes)
-                      .slice(0, 4)
-                      .map(([k, v]) => `${k}: ${JSON.stringify(v.from)} → ${JSON.stringify(v.to)}`)
-                      .join(" · ")}
-                  </p>
-                )}
-              </Card>
-            </li>
-          ))}
-        </ul>
-      </section>
-      <section className="flex flex-col gap-3" aria-labelledby="pay-events">
-        <SectionHeader id="pay-events" title="Payment notifications" />
-        <p className="px-1 text-footnote text-label-2">
-          {events.length} received recently · {rejected.length} rejected. Rejected ones had a bad signature, an unknown order or the wrong amount.
-        </p>
-        <ul className="flex flex-col gap-2">
-          {rejected.slice(0, 20).map((e) => (
-            <li key={e.id}>
-              <Card className="p-4">
-                <p className="text-callout font-semibold text-coral-ink">{e.reason}</p>
-                <p className="text-footnote text-label-2">
-                  Order {e.order_ref || "?"} · status {e.status_code || "?"} · {new Date(e.created_at).toLocaleString("en-NZ")}
-                </p>
-              </Card>
-            </li>
-          ))}
-        </ul>
       </section>
     </div>
   );

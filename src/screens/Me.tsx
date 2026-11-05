@@ -23,6 +23,7 @@ import { deleteMyAccount, loadMember, PLAN_NAME, useMember } from "@/lib/communi
 import { signOut, useAuth } from "@/lib/sync";
 import { SignInSheet } from "@/components/SignInSheet";
 import { MemberCard } from "@/components/MemberCard";
+import { MyReceipts } from "@/components/MyReceipts";
 import { BADGES, currentStreak, journeyProgress, totalPoints } from "@/logic/progress";
 import { pickData, useApp } from "@/store/app";
 import type { Lang, Profile, ThemePref } from "@/types";
@@ -274,6 +275,8 @@ export function Me() {
             onClick={() => showUpgrade()}
           />
         </ListGroup>
+
+        <MyReceipts />
 
         <ListGroup header="Your data" footer="Your data belongs to you. Export it any time, or delete it from this device.">
           <ListRow

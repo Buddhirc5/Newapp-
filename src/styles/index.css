@@ -52,6 +52,11 @@
   --chart-1: #7f6cf0;
   --chart-2: #d99a0b;
   --chart-3: #00917a;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
 
   --shadow-card: 0 1px 2px rgb(16 15 6 / 0.06), 0 8px 24px rgb(16 15 6 / 0.06);
   --shadow-float: 0 2px 6px rgb(16 15 6 / 0.12), 0 16px 40px rgb(16 15 6 / 0.18);
@@ -93,6 +98,11 @@
     --chart-1: #8a79f2;
     --chart-2: #c2890c;
     --chart-3: #0fa287;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
     --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
     --shadow-float: 0 2px 6px rgb(0 0 0 / 0.5), 0 16px 40px rgb(0 0 0 / 0.5);
     color-scheme: dark;
@@ -128,6 +138,11 @@
   --chart-1: #8a79f2;
   --chart-2: #c2890c;
   --chart-3: #0fa287;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
   --shadow-float: 0 2px 6px rgb(0 0 0 / 0.5), 0 16px 40px rgb(0 0 0 / 0.5);
   color-scheme: dark;
@@ -174,6 +189,11 @@
   --color-night-2: var(--night-2);
   --color-focus: var(--focus);
   --color-chart-1: var(--chart-1);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --color-series-4: var(--series-4);
+  --color-series-5: var(--series-5);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
 

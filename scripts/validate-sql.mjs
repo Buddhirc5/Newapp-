@@ -11,7 +11,8 @@ await db.exec(`
   create role anon nologin;
   create role authenticated nologin;
   create schema auth;
-  create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb default '{}', last_sign_in_at timestamptz);
+  create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb default '{}', last_sign_in_at timestamptz, banned_until timestamptz);
+  create table auth.sessions (id uuid primary key default gen_random_uuid(), user_id uuid);
   create function auth.uid() returns uuid language sql stable
     as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   create function auth.jwt() returns jsonb language sql stable
@@ -262,6 +263,23 @@ await db.exec("reset role;");
 await db.exec(`delete from auth.users where id = '${C}'`);
 check("deleting an account removes the member's profile", (await db.query("select id from public.profiles where id = $1", [C])).rows.length === 0);
 check("members can't read payment events", (await as(B, () => db.query("select id from public.payment_events"))).rows.length === 0);
+
+// Admin analytics.
+const an = (await as(D, () => db.query("select public.admin_analytics(30) as a"))).rows[0].a;
+check("analytics returns 30 daily rows", an.daily.length === 30);
+check("analytics counts members and paying", an.kpis.members >= 3 && typeof an.kpis.paying === "number" && an.funnel.length === 5);
+check("analytics counts AI use by kind", typeof an.breakdown.ai_kind === "object");
+check("analytics need the authenticator step", await as(D, () => fails(() => db.query("select public.admin_analytics(30)")), "aal1"));
+check("members can't read analytics", await as(B, () => fails(() => db.query("select public.admin_analytics(30)"))));
+const mem = (await as(D, () => db.query("select * from public.admin_members('', 50)"))).rows;
+check("admin member list includes AI use and plan", mem.length >= 3 && "ai_30d" in mem[0] && "effective_plan" in mem[0]);
+await db.exec(`insert into public.payments (user_id, provider, kind, plan, amount, currency, status) values ('${B}', 'manual', 'subscription', 'ultra', 5990, 'LKR', 'paid')`);
+const pays = (await as(D, () => db.query("select * from public.admin_payments(30)"))).rows;
+check("payments list members and receipt numbers", pays.length >= 1 && pays[0].receipt_no >= 1001 && pays[0].email === "b@example.com");
+check("members see their own receipts", (await as(B, () => db.query("select receipt_no from public.payments"))).rows.length >= 1);
+check("members can't sign others out", await as(B, () => fails(() => db.query("select public.admin_sign_out_member($1)", [A]))));
+await as(D, () => db.query("select public.admin_sign_out_member($1)", [A]));
+check("admin sign-outs are audited", (await as(D, () => db.query("select id from public.admin_audit where action = 'sign_out'"))).rows.length === 1);
 
 console.log(failures ? `\n${failures} check(s) failed` : "\nAll checks passed");
 process.exit(failures ? 1 : 0);
