@@ -114,28 +114,52 @@ export function readJson<T>(message: Anthropic.Message): T | null {
   }
 }
 
+function anthropic(bearer = false) {
+  const key = Deno.env.get("ANTHROPIC_API_KEY")!.trim();
+  return bearer ? new Anthropic({ apiKey: null, authToken: key, maxRetries: 1 }) : new Anthropic({ apiKey: key, maxRetries: 1 });
+}
+
+/** Logs why a Claude call failed (status and error type only, never the key). */
+function logAiError(model: string, e: unknown) {
+  const err = e as { status?: number; error?: { error?: { type?: string; message?: string } }; message?: string };
+  console.error(`ai: ${model} failed`, JSON.stringify({ status: err?.status, type: err?.error?.error?.type, message: String(err?.error?.error?.message ?? err?.message ?? e).slice(0, 300) }));
+}
+
 /**
  * Haiku 5.5 first; Sonnet 5.5 once if Haiku fails, declines or returns something
  * `isUsable` rejects. Sonnet's answer is returned whenever it parses.
  */
 export async function generate<T>(o: GenerateOptions, isUsable: (v: T) => boolean = () => true): Promise<{ data: T; model: string }> {
-  const client = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY")!, maxRetries: 1 });
+  let client = anthropic();
   let lastError: unknown = null;
-  for (const model of [PRIMARY_MODEL, FALLBACK_MODEL]) {
+  let triedBearer = false;
+  for (let i = 0; i < 2; i++) {
+    const model = i === 0 ? PRIMARY_MODEL : FALLBACK_MODEL;
     try {
       // deno-lint-ignore no-explicit-any
       const message = await client.messages.create(buildRequest(model, o) as any);
       const data = readJson<T>(message as Anthropic.Message);
       if (data && (model === FALLBACK_MODEL || isUsable(data))) return { data, model };
+      console.error(`ai: ${model} gave no usable answer (stop_reason=${(message as Anthropic.Message).stop_reason})`);
       if ((message as Anthropic.Message).stop_reason === "refusal") lastError = new AiError("This couldn't be reviewed automatically.", 422);
     } catch (e) {
       lastError = e;
+      logAiError(model, e);
+      // Some key formats are sent as a bearer token instead: try that once.
+      if (e instanceof Anthropic.AuthenticationError && !triedBearer) {
+        triedBearer = true;
+        client = anthropic(true);
+        i--;
+        continue;
+      }
       // Bad credentials won't be fixed by switching model.
       if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) break;
     }
   }
   if (lastError instanceof AiError) throw lastError;
   if (lastError instanceof Anthropic.RateLimitError) throw new AiError("The AI is busy. Try again in a minute.", 429);
+  if (lastError instanceof Anthropic.AuthenticationError || lastError instanceof Anthropic.PermissionDeniedError) throw new AiError("The AI key isn't working. An admin needs to check it.", 502);
+  if (/credit|billing|balance/i.test(String((lastError as { message?: string })?.message ?? ""))) throw new AiError("The AI is out of credit. An admin needs to top it up.", 502);
   throw new AiError("The AI couldn't finish. Try again.", 502);
 }
 
