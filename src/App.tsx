@@ -1,10 +1,10 @@
 import { useEffect } from "react";
-import { createBrowserRouter, createMemoryRouter, RouterProvider, type RouteObject } from "react-router";
+import { createBrowserRouter, createMemoryRouter, Navigate, RouterProvider, type RouteObject } from "react-router";
 import { MotionConfig } from "motion/react";
 import { AppShell } from "@/components/layout/AppShell";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import { Toaster } from "@/components/ui/Toast";
-import { IS_PREVIEW } from "@/lib/env";
+import { HAS_SUPABASE, IS_PREVIEW } from "@/lib/env";
 import { loadRemoteContent } from "@/lib/content";
 import { loadMember, useMember } from "@/lib/community";
 import { Settle } from "@/screens/Settle";
@@ -22,8 +22,16 @@ function Home() {
   return situation === "in_nz" ? <Settle /> : <Journey />;
 }
 
+/** The online app always needs an account; the welcome quiz is for signed-in members only. */
+function WelcomeGate() {
+  const user = useAuth((s) => s.user);
+  const ready = useAuth((s) => s.ready);
+  if (HAS_SUPABASE && !user) return ready ? <Navigate to="/landing" replace /> : null;
+  return <Welcome />;
+}
+
 const routes: RouteObject[] = [
-  { path: "/welcome", element: <Welcome /> },
+  { path: "/welcome", element: <WelcomeGate /> },
   { path: "/landing", lazy: async () => ({ Component: (await import("@/screens/Landing")).Landing }) },
   // Outside the app shell, so visitors who haven't started can read it from the landing page.
   { path: "/privacy", lazy: async () => ({ Component: (await import("@/screens/Privacy")).Privacy }) },

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
 import { motion, useReducedMotion } from "motion/react";
 import {
   BookOpenCheck,
@@ -55,7 +54,6 @@ const FAQ = [
 ];
 
 export function Landing() {
-  const navigate = useNavigate();
   const reduce = useReducedMotion();
   const [emailOpen, setEmailOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -87,9 +85,6 @@ export function Landing() {
           </Button>
         </>
       ) : null}
-      <button type="button" onClick={() => navigate("/welcome")} className={cn("min-h-11 text-subhead font-semibold", dark ? "text-white/90 underline-offset-4 hover:underline" : "text-teal-ink")}>
-        Try it without an account
-      </button>
     </div>
   );
 

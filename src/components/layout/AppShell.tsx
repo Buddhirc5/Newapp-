@@ -49,10 +49,12 @@ export function AppShell() {
 
   // Signed-in members finish their first-run questions before anything else.
   if (HAS_SUPABASE && user && member && !member.onboarded) return <Navigate to="/start" replace />;
-  if (!onboarded && !IS_PREVIEW && !user) {
-    if (HAS_SUPABASE && !authReady) return null;
-    return <Navigate to={HAS_SUPABASE ? "/landing" : "/welcome"} replace />;
+  // An account is always required online; the offline build keeps the local welcome.
+  if (HAS_SUPABASE && !IS_PREVIEW && !user) {
+    if (!authReady) return null;
+    return <Navigate to="/landing" replace />;
   }
+  if (!HAS_SUPABASE && !onboarded && !IS_PREVIEW) return <Navigate to="/welcome" replace />;
 
   return (
     <div className="relative min-h-dvh lg:pl-72">
