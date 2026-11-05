@@ -1,7 +1,7 @@
 // AI help for paying members: polish an NZ CV, draft an SOP, or review the journey.
 // Haiku 5.5 (low effort) first, Sonnet 5.5 (low effort) if that fails. Counted
 // against the member's daily limit only when it succeeds.
-import { AiError, generate, journeyContext, JOURNEY_SCHEMA, JOURNEY_SYSTEM, json, member, recordUsage } from "./ai.ts";
+import { AiError, generate, journeyContext, JOURNEY_SCHEMA, JOURNEY_SYSTEM, json, limitReached, member, reserve, settle, withCors } from "./ai.ts";
 
 const CV_SYSTEM = `You are an experienced New Zealand recruiter helping a Sri Lankan job seeker polish their CV for NZ employers.
 NZ conventions: no photo, date of birth, NIC, religion, marital status or parents' names; a 3-4 line profile summary in the third-person-free style (no "I"); achievement bullets that start with a strong past-tense verb and include a number or result where the facts allow; NZ English spelling (organise, colour, programme); work rights stated clearly.
@@ -48,12 +48,17 @@ const SOP_SCHEMA = {
 
 const clip = (v: unknown, n: number) => String(v ?? "").slice(0, n);
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return json({ ok: true });
+Deno.serve(withCors(async (req) => {
   const m = await member(req);
   if (!m.ok) return m.res;
 
   const body = (await req.json().catch(() => ({}))) as { kind?: string; cv?: Record<string, unknown>; sop?: Record<string, unknown>; target?: string };
+  if (!["cv", "sop", "journey"].includes(String(body.kind))) return json({ error: "Unknown request." }, 400);
+
+  // Hold one of today's uses for this request; it's refunded if anything fails.
+  const reservation = await reserve(m.service, m.userId, String(body.kind)).catch(() => null);
+  if (reservation === null) return limitReached(m.quota);
+  let model: string | null = null;
 
   try {
     if (body.kind === "cv") {
@@ -74,7 +79,7 @@ Deno.serve(async (req) => {
         { system: CV_SYSTEM, content: text, schema: CV_SCHEMA },
         (v) => typeof v.summary === "string" && Array.isArray(v.experience),
       );
-      await recordUsage(m.service, m.userId, "cv", out.model);
+      model = out.model;
       return json({ result: out.data, model: out.model, remaining: m.quota.limit - m.quota.used - 1 });
     }
 
@@ -96,7 +101,7 @@ Deno.serve(async (req) => {
         .map(([k, v]) => `${k}: ${clip(v, 1500) || "(not given)"}`)
         .join("\n");
       const out = await generate<{ draft: string; tips: string[] }>({ system: SOP_SYSTEM, content: text, schema: SOP_SCHEMA, maxTokens: 10000 }, (v) => v.draft?.length > 400);
-      await recordUsage(m.service, m.userId, "sop", out.model);
+      model = out.model;
       return json({ result: out.data, model: out.model, remaining: m.quota.limit - m.quota.used - 1 });
     }
 
@@ -107,7 +112,7 @@ Deno.serve(async (req) => {
         { system: JOURNEY_SYSTEM, content: context, schema: JOURNEY_SCHEMA, maxTokens: 4000 },
         (v) => Array.isArray(v.next_steps) && v.next_steps.length > 0,
       );
-      await recordUsage(m.service, m.userId, "journey", out.model);
+      model = out.model;
       await m.service.from("journey_insights").insert({ user_id: m.userId, source: "on_demand", insight: out.data });
       return json({ result: out.data, model: out.model, remaining: m.quota.limit - m.quota.used - 1 });
     }
@@ -116,5 +121,7 @@ Deno.serve(async (req) => {
   } catch (e) {
     if (e instanceof AiError) return json({ error: e.message }, e.status);
     return json({ error: "Something went wrong. Try again." }, 500);
+  } finally {
+    await settle(m.service, reservation, model);
   }
-});
+}));

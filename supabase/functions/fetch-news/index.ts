@@ -2,6 +2,7 @@
 // stores headline, short summary and link in public.news_items.
 // Runs on a schedule (pg_cron, every 3 hours) and can be called manually.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { withCors } from "./cors.ts";
 
 const FEEDS = [
   { source: "NZ Government", url: "https://www.beehive.govt.nz/rss.xml" },
@@ -93,7 +94,7 @@ function parse(xml: string, source: string): Item[] {
   return items;
 }
 
-Deno.serve(async () => {
+Deno.serve(withCors(async () => {
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const results: Record<string, number | string> = {};
   const all: Item[] = [];
@@ -130,4 +131,4 @@ Deno.serve(async () => {
   await supabase.from("news_items").delete().lt("published_at", new Date(Date.now() - 180 * 86_400_000).toISOString());
 
   return new Response(JSON.stringify({ saved: fresh.length, feeds: results }), { headers: { "content-type": "application/json" } });
-});
+}));

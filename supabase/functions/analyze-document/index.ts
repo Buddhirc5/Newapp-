@@ -3,7 +3,11 @@
 // Requires the ANTHROPIC_API_KEY secret, the ai_enabled setting and a plan with AI uses left today.
 // Runs on Claude Haiku 5.5 (low effort); retries once on Sonnet 5.5 (low effort)
 // if Haiku fails or can't read the document.
-import { AiError, generate, json, member, recordUsage } from "./ai.ts";
+import { AiError, generate, json, limitReached, member, reserve, settle, withCors } from "./ai.ts";
+import { sniff } from "./sniff.ts";
+
+const MAX_BYTES = 10 * 1024 * 1024;
+
 
 const DOC_TYPES: Record<string, string> = {
   passport: "passport bio page",
@@ -62,8 +66,7 @@ Extract only the key fields a person needs to double-check; mask passport and ID
 Never say a document is genuine or guarantee an outcome. This is general information, not immigration advice; suggest a licensed adviser for anything uncertain.
 If the image is unreadable or isn't the stated document, set readable to false and explain what to upload instead.`;
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return json({ ok: true });
+Deno.serve(withCors(async (req) => {
   const { path, docType, fileName } = (await req.json().catch(() => ({}))) as { path?: string; docType?: string; fileName?: string };
   const m = await member(req);
   if (!m.ok) {
@@ -78,18 +81,24 @@ Deno.serve(async (req) => {
   if (downloadError || !file) return json({ error: "Couldn't read the upload. Try again." }, 400);
   const bytes = new Uint8Array(await file.arrayBuffer());
   await removeFile();
+  const mime = sniff(bytes);
+  if (bytes.length > MAX_BYTES) return json({ error: "That file is over 10 MB. Try a photo or a smaller PDF." }, 413);
+  if (!mime) return json({ error: "Upload a PDF, JPG, PNG or WebP file." }, 415);
 
   let binary = "";
   for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   const data = btoa(binary);
-  const mime = file.type || (path.endsWith(".pdf") ? "application/pdf" : "image/jpeg");
   const source =
     mime === "application/pdf"
       ? ({ type: "document", source: { type: "base64", media_type: "application/pdf", data } } as const)
-      : ({ type: "image", source: { type: "base64", media_type: (["image/png", "image/webp", "image/gif"].includes(mime) ? mime : "image/jpeg") as "image/jpeg", data } } as const);
+      : ({ type: "image", source: { type: "base64", media_type: mime, data } } as const);
 
   const label = DOC_TYPES[docType ?? "other"] ?? DOC_TYPES.other;
   const { data: profile } = await m.service.from("profiles").select("display_name").eq("id", m.userId).single();
+
+  const reservation = await reserve(m.service, m.userId, "document").catch(() => null);
+  if (reservation === null) return limitReached(m.quota);
+  let model: string | null = null;
 
   try {
     const out = await generate<{ readable: boolean; issues: unknown[] }>(
@@ -101,7 +110,7 @@ Deno.serve(async (req) => {
       // An unreadable result from Haiku gets a second look from Sonnet.
       (v) => v.readable !== false && Array.isArray(v.issues),
     );
-    await recordUsage(m.service, m.userId, "document", out.model);
+    model = out.model;
     const { data: saved } = await m.service
       .from("document_reviews")
       .insert({ user_id: m.userId, doc_type: docType ?? "other", file_name: (fileName ?? "").slice(0, 120), result: out.data })
@@ -111,8 +120,10 @@ Deno.serve(async (req) => {
   } catch (e) {
     if (e instanceof AiError) return json({ error: e.message }, e.status);
     return json({ error: "Something went wrong while checking. Try again." }, 500);
+  } finally {
+    await settle(m.service, reservation, model);
   }
-});
+}));
 
 async function clientsRemove(req: Request, path: string) {
   const { createClient } = await import("npm:@supabase/supabase-js@2");

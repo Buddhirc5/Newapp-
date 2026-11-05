@@ -5,20 +5,18 @@
 //                           couldn't do is re-queued once on Sonnet.
 // Only the service role (the cron job) or an admin may call it.
 import Anthropic from "npm:@anthropic-ai/sdk@1.5.0";
-import { buildRequest, clients, FALLBACK_MODEL, journeyContext, JOURNEY_SCHEMA, JOURNEY_SYSTEM, json, PRIMARY_MODEL, readJson } from "./ai.ts";
+import { buildRequest, clients, withCors, FALLBACK_MODEL, journeyContext, JOURNEY_SCHEMA, JOURNEY_SYSTEM, json, PRIMARY_MODEL, readJson } from "./ai.ts";
 
 type Insight = { headline: string; next_steps: unknown[]; risks: string[]; encouragement: string };
 
-Deno.serve(async (req) => {
+Deno.serve(withCors(async (req) => {
   const { service, asUser } = clients(req);
   const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
   let allowed = bearer.length > 0 && bearer === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!allowed) {
-    const { data: auth } = await asUser.auth.getUser();
-    if (auth.user) {
-      const { data: admin } = await service.from("admins").select("user_id").eq("user_id", auth.user.id).maybeSingle();
-      allowed = Boolean(admin);
-    }
+    // is_admin() is true only for admins whose session passed the authenticator step.
+    const { data: isAdmin } = await asUser.rpc("is_admin");
+    allowed = isAdmin === true;
   }
   if (!allowed) return json({ error: "Not allowed." }, 403);
 
@@ -89,4 +87,4 @@ Deno.serve(async (req) => {
     report.push({ id: b.id, saved, retried: again?.count ?? 0 });
   }
   return json({ batches: report });
-});
+}));

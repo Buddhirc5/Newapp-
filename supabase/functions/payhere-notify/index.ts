@@ -16,12 +16,35 @@ Deno.serve(async (req) => {
 
   const form = await req.formData();
   const f = (k: string) => String(form.get(k) ?? "");
-  const expected = await md5Upper(f("merchant_id") + f("order_id") + f("payhere_amount") + f("payhere_currency") + f("status_code") + (await md5Upper(secret)));
-  if (f("merchant_id") !== merchantId || f("md5sig").toUpperCase() !== expected) return new Response("bad signature", { status: 400 });
-
   const service = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const { data: order } = await service.from("payments").select("id, user_id, plan, status").eq("provider", "payhere").eq("provider_ref", f("order_id")).maybeSingle();
-  if (!order?.user_id) return new Response("unknown order", { status: 200 });
+  // Every notification is logged (without the signature) so admins can review rejected ones.
+  const log = (accepted: boolean, reason = "") =>
+    service.from("payment_events").insert({
+      provider: "payhere",
+      order_ref: f("order_id").slice(0, 80),
+      status_code: f("status_code").slice(0, 8),
+      accepted,
+      reason,
+      payload: Object.fromEntries([...form.entries()].filter(([k]) => k !== "md5sig").map(([k, v]) => [k, String(v).slice(0, 200)])),
+    });
+
+  const expected = await md5Upper(f("merchant_id") + f("order_id") + f("payhere_amount") + f("payhere_currency") + f("status_code") + (await md5Upper(secret)));
+  if (f("merchant_id") !== merchantId || f("md5sig").toUpperCase() !== expected) {
+    await log(false, "bad signature");
+    return new Response("bad signature", { status: 400 });
+  }
+
+  const { data: order } = await service.from("payments").select("id, user_id, plan, status, amount, currency").eq("provider", "payhere").eq("provider_ref", f("order_id")).maybeSingle();
+  if (!order?.user_id) {
+    await log(false, "unknown order");
+    return new Response("unknown order", { status: 200 });
+  }
+  // The signed amount must match what we asked PayHere to charge.
+  if (f("payhere_currency") !== order.currency || Number(f("payhere_amount")).toFixed(2) !== Number(order.amount).toFixed(2)) {
+    await log(false, "amount or currency mismatch");
+    return new Response("mismatch", { status: 200 });
+  }
+  await log(true);
 
   const status = Number(f("status_code"));
   if (status === 2) {
@@ -44,7 +67,7 @@ Deno.serve(async (req) => {
       kind: "subscription",
       plan,
       amount: Number(f("payhere_amount")),
-      currency: f("payhere_currency") === "LKR" ? "LKR" : "USD",
+      currency: order.currency,
       status: "paid",
       period_end: until.toISOString(),
     });

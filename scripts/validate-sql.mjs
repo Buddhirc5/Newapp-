@@ -14,6 +14,8 @@ await db.exec(`
   create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb default '{}', last_sign_in_at timestamptz);
   create function auth.uid() returns uuid language sql stable
     as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+  create function auth.jwt() returns jsonb language sql stable
+    as $$ select jsonb_build_object('sub', current_setting('request.jwt.claim.sub', true), 'aal', nullif(current_setting('request.jwt.claim.aal', true), '')) $$;
   create schema storage;
   create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
   create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
@@ -50,9 +52,10 @@ const check = (name, ok) => {
   if (!ok) failures += 1;
 };
 
-async function as(user, fn) {
+async function as(user, fn, aal = "aal2") {
   await db.exec("reset role;");
   await db.query("select set_config('request.jwt.claim.sub', $1, false)", [user ?? ""]);
+  await db.query("select set_config('request.jwt.claim.aal', $1, false)", [user ? aal : ""]);
   await db.exec(`set role ${user ? "authenticated" : "anon"};`);
   try {
     return await fn();
@@ -234,6 +237,31 @@ const quota = (await as(B, () => db.query("select public.my_ai_quota() as q"))).
 check("Ultra quota uses the Ultra limit", quota.plan === "ultra" && quota.limit === 60);
 check("members can't read other members' insights", (await as(C, () => db.query("select id from public.journey_insights where user_id = $1", [B]))).rows.length === 0);
 check("members can't write insights", await as(B, () => fails(() => db.query("insert into public.journey_insights (user_id, insight) values ($1, '{}')", [B]))));
+
+// Security hardening.
+check("admins without the authenticator step aren't admins", (await as(D, () => db.query("select public.is_admin() as a", []), "aal1")).rows[0].a === false);
+check("admin accounts are still recognised for the sign-in screen", (await as(D, () => db.query("select public.is_admin_account() as a", []), "aal1")).rows[0].a === true);
+check("admin stats need the authenticator step", await as(D, () => fails(() => db.query("select public.admin_stats()")), "aal1"));
+check("members can't read another member's plan", (await as(C, () => db.query("select public.effective_plan($1) as p", [B]))).rows[0].p === null);
+check("members can read their own plan", (await as(B, () => db.query("select public.effective_plan($1) as p", [B]))).rows[0].p === "ultra");
+check("prices outside the allowed range are refused", await as(D, () => fails(() => db.query("update public.app_settings set value = '199000' where key = 'main_price_lkr'"))));
+await as(D, () => db.query("update public.app_settings set value = '2490' where key = 'main_price_lkr'"));
+check("admin changes are written to the audit log", (await as(D, () => db.query("select changes from public.admin_audit where target_table = 'app_settings' order by id desc limit 1"))).rows[0]?.changes?.value?.to === 2490);
+check("members can't read the audit log", (await as(B, () => db.query("select id from public.admin_audit"))).rows.length === 0);
+check("members can't reserve AI uses directly", await as(B, () => fails(() => db.query("select public.reserve_ai_use($1, 'cv')", [B]))));
+const r1 = (await db.query("select public.reserve_ai_use($1, 'cv') as id", [B])).rows[0].id;
+check("the service can reserve an AI use", r1 !== null);
+for (let i = 0; i < 70; i++) await db.query("select public.reserve_ai_use($1, 'cv')", [B]);
+check("reservations stop at the daily limit", (await db.query("select count(*)::int as n from public.ai_usage where user_id = $1 and kind = 'cv'", [B])).rows[0].n === 60);
+let blocked = false;
+for (let i = 0; i < 12 && !blocked; i++) {
+  blocked = await as(A, () => fails(() => db.query("insert into public.listings (kind, title, description, price_lkr, city) values ('room', $1, 'A clean room near the bus stop, bills included.', 1000, 'Auckland')", [`Room number ${i} to rent`])));
+}
+check("listing floods are slowed down", blocked);
+await db.exec("reset role;");
+await db.exec(`delete from auth.users where id = '${C}'`);
+check("deleting an account removes the member's profile", (await db.query("select id from public.profiles where id = $1", [C])).rows.length === 0);
+check("members can't read payment events", (await as(B, () => db.query("select id from public.payment_events"))).rows.length === 0);
 
 console.log(failures ? `\n${failures} check(s) failed` : "\nAll checks passed");
 process.exit(failures ? 1 : 0);

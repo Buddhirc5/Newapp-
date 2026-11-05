@@ -268,10 +268,13 @@ export async function loadMember(): Promise<void> {
     return;
   }
   useMember.setState({ loading: true });
-  const [{ data: profile }, { data: admin }] = await Promise.all([
+  const [{ data: profile }, adminRes] = await Promise.all([
     sb.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-    sb.rpc("is_admin"),
+    // Admin list membership only; real admin rights also need the authenticator step.
+    sb.rpc("is_admin_account"),
   ]);
+  // Older databases without is_admin_account() fall back to is_admin().
+  const admin = adminRes.error ? (await sb.rpc("is_admin")).data : adminRes.data;
   useMember.setState({ profile: (profile as MemberProfile) ?? null, isAdmin: Boolean(admin), loading: false });
 }
 
@@ -859,4 +862,52 @@ export async function startCheckout(plan: PaidPlan, phone: string, city: string)
   }
   document.body.appendChild(form);
   form.submit();
+}
+
+// ── Security (admins) ────────────────────────────────────────────────────
+
+export interface AuditRow {
+  id: number;
+  actor: string | null;
+  actor_email?: string | null;
+  action: string;
+  target_table: string;
+  target_id: string | null;
+  changes: Record<string, { from: unknown; to: unknown }>;
+  created_at: string;
+}
+
+export async function fetchAudit(): Promise<AuditRow[]> {
+  const sb = await client();
+  const { data, error } = await sb.from("admin_audit").select("*").order("created_at", { ascending: false }).limit(100);
+  if (error) throw error;
+  return (data ?? []) as AuditRow[];
+}
+
+export interface PaymentEventRow {
+  id: number;
+  order_ref: string | null;
+  status_code: string | null;
+  accepted: boolean;
+  reason: string;
+  created_at: string;
+}
+
+export async function fetchPaymentEvents(): Promise<PaymentEventRow[]> {
+  const sb = await client();
+  const { data, error } = await sb.from("payment_events").select("id, order_ref, status_code, accepted, reason, created_at").order("created_at", { ascending: false }).limit(200);
+  if (error) throw error;
+  return (data ?? []) as PaymentEventRow[];
+}
+
+/** Permanently deletes the signed-in member's account and data. */
+export async function deleteMyAccount(): Promise<void> {
+  const sb = await client();
+  requireUser();
+  const { error } = await sb.functions.invoke("delete-account", { body: { confirm: "DELETE" } });
+  if (error) {
+    const payload = (await (error as { context?: Response }).context?.json?.().catch(() => null)) as { error?: string } | null;
+    throw new Error(payload?.error ?? "Couldn't delete the account. Try again.");
+  }
+  await sb.auth.signOut({ scope: "local" });
 }

@@ -13,14 +13,9 @@ export const PRIMARY_MODEL = "claude-haiku-5-5";
 export const FALLBACK_MODEL = "claude-sonnet-5-5";
 
 export const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "content-type": "application/json",
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "authorization, apikey, content-type, x-client-info",
-    },
-  });
+  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+
+export { allowedOrigin, withCors } from "./cors.ts";
 
 export function clients(req: Request) {
   const url = Deno.env.get("SUPABASE_URL")!;
@@ -59,9 +54,26 @@ export async function member(req: Request): Promise<
   return { ok: true, userId: auth.user.id, quota: q, service };
 }
 
-export async function recordUsage(service: ReturnType<typeof clients>["service"], userId: string, kind: string, model: string) {
-  await service.from("ai_usage").insert({ user_id: userId, kind, model });
+type Service = ReturnType<typeof clients>["service"];
+
+/**
+ * Reserves one AI use before calling the model, so parallel requests can't go
+ * past the daily limit. Returns null when the limit is reached.
+ */
+export async function reserve(service: Service, userId: string, kind: string): Promise<number | null> {
+  const { data, error } = await service.rpc("reserve_ai_use", { p_user: userId, p_kind: kind });
+  if (error) throw new AiError("Couldn't check your daily limit. Try again.", 500);
+  return (data as number | null) ?? null;
 }
+
+/** Confirms a reserved use with the model that answered, or refunds it if the call failed. */
+export async function settle(service: Service, id: number, model: string | null) {
+  if (model) await service.from("ai_usage").update({ status: "done", model }).eq("id", id);
+  else await service.from("ai_usage").delete().eq("id", id);
+}
+
+export const limitReached = (q: Quota) =>
+  json({ error: `You've used today's ${q.limit} AI requests.${q.plan === "ultra" ? "" : " Ultra gives you more each day."}`, upgrade: q.plan !== "ultra" }, 429);
 
 export class AiError extends Error {
   constructor(message: string, readonly status = 502) {

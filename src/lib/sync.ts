@@ -101,10 +101,10 @@ export function startSync(): () => void {
   };
 }
 
-export async function sendSignInCode(email: string): Promise<{ ok: boolean; message?: string }> {
+export async function sendSignInCode(email: string, captchaToken?: string): Promise<{ ok: boolean; message?: string }> {
   const sb = await getSupabase();
   if (!sb) return { ok: false, message: "Cloud sync isn't set up for this app yet." };
-  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin, shouldCreateUser: true } });
+  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin, shouldCreateUser: true, captchaToken: captchaToken || undefined } });
   return error ? { ok: false, message: error.message } : { ok: true };
 }
 
@@ -115,9 +115,10 @@ export async function verifySignInCode(email: string, token: string): Promise<{ 
   return error ? { ok: false, message: error.message } : { ok: true };
 }
 
-export async function signOut(): Promise<void> {
+/** Signs out here, or on every device when `everywhere` is true. */
+export async function signOut(everywhere = false): Promise<void> {
   const sb = await getSupabase();
-  await sb?.auth.signOut();
+  await sb?.auth.signOut({ scope: everywhere ? "global" : "local" });
 }
 
 /** Google sign-in through Supabase. Returns to the page the person started on. */
@@ -131,10 +132,10 @@ export async function signInWithGoogle(): Promise<{ ok: boolean; message?: strin
   return error ? { ok: false, message: error.message } : { ok: true };
 }
 
-export async function signInWithPassword(email: string, password: string): Promise<{ ok: boolean; message?: string }> {
+export async function signInWithPassword(email: string, password: string, captchaToken?: string): Promise<{ ok: boolean; message?: string }> {
   const sb = await getSupabase();
   if (!sb) return { ok: false, message: "Sign-in isn't available in this version." };
-  const { error } = await sb.auth.signInWithPassword({ email, password });
+  const { error } = await sb.auth.signInWithPassword({ email, password, options: { captchaToken: captchaToken || undefined } });
   return error ? { ok: false, message: error.message } : { ok: true };
 }
 

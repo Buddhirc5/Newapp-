@@ -30,7 +30,7 @@ async function readPdf(file: File): Promise<CvFile> {
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
   let doc;
   try {
-    doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false }).promise;
   } catch {
     throw new CvFileError("This PDF couldn't be opened. If it has a password, remove it and try again.");
   }

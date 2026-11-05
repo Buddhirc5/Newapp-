@@ -226,7 +226,10 @@ export function Landing() {
             <div className="mt-5">{signInButtons(true)}</div>
           </div>
           <p className="mx-auto mt-6 max-w-xl text-center text-footnote text-label-2">
-            KiwiPath shares general information, not immigration advice. Always confirm rules on immigration.govt.nz or with a licensed adviser.
+            KiwiPath shares general information, not immigration advice. Always confirm rules on immigration.govt.nz or with a licensed adviser.{" "}
+            <a href="/privacy" className="underline underline-offset-2">
+              Privacy
+            </a>
           </p>
         </section>
       </main>

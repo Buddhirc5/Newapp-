@@ -45,6 +45,10 @@ import {
   setOrderStatus,
   saveSetting,
   useMember,
+  fetchAudit,
+  fetchPaymentEvents,
+  type AuditRow,
+  type PaymentEventRow,
   type AdminMember,
   type Agency,
   type GigOrder,
@@ -55,9 +59,10 @@ import {
 } from "@/lib/community";
 import { HAS_SUPABASE } from "@/lib/env";
 import { formatNumber, relativeDay } from "@/lib/format";
-import { signInWithGoogle, signInWithPassword, useAuth, useGoogleEnabled } from "@/lib/sync";
+import { signInWithGoogle, signInWithPassword, signOut, useAuth, useGoogleEnabled } from "@/lib/sync";
+import { Captcha, TURNSTILE_SITE_KEY } from "@/components/Captcha";
 
-type Tab = "overview" | "members" | "moderation" | "agencies" | "news" | "experts" | "payments" | "settings";
+type Tab = "overview" | "members" | "moderation" | "agencies" | "news" | "experts" | "payments" | "security" | "settings";
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -67,6 +72,7 @@ const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "news", label: "News", icon: Newspaper },
   { id: "experts", label: "Experts", icon: BadgeCheck },
   { id: "payments", label: "Payments", icon: CreditCard },
+  { id: "security", label: "Security", icon: ShieldCheck },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -76,6 +82,7 @@ export function Admin() {
   const isAdmin = useMember((s) => s.isAdmin);
   const loading = useMember((s) => s.loading);
   const [mfa, setMfa] = useState<MfaState>({ kind: "loading" });
+  useIdleSignOut(Boolean(user && isAdmin));
 
   const refreshMfa = useCallback(() => {
     mfaState().then(setMfa, () => setMfa({ kind: "none" }));
@@ -91,7 +98,14 @@ export function Admin() {
   else if (!isAdmin) body = <Notice tone="warn" title="Admins only">This account isn't an admin. Ask the owner to add you in Supabase (public.admins).</Notice>;
   else if (mfa.kind === "loading") body = <div className="h-40 animate-pulse rounded-card bg-fill-2" />;
   else if (mfa.kind === "needs-code") body = <MfaCode factorId={mfa.factorId} onDone={refreshMfa} />;
-  else body = <Console mfa={mfa} onEnrolled={refreshMfa} />;
+  // Admin rights only work after the authenticator step, so setting one up is required.
+  else if (mfa.kind === "none")
+    body = (
+      <div className="mx-auto w-full max-w-md">
+        <EnrolBanner onEnrolled={refreshMfa} />
+      </div>
+    );
+  else body = <Console />;
 
   return (
     <Page title="Admin" back={{ to: "/me", label: "Me" }} wide>
@@ -100,11 +114,70 @@ export function Admin() {
   );
 }
 
+// Slows down password guessing on this device. Supabase's own rate limits and
+// CAPTCHA protect the server side.
+const LOCK_KEY = "kp-admin-lock";
+const MAX_TRIES = 5;
+const LOCK_MINUTES = 10;
+
+function readLock(): { fails: number; until: number } {
+  try {
+    return { fails: 0, until: 0, ...(JSON.parse(localStorage.getItem(LOCK_KEY) ?? "{}") as object) };
+  } catch {
+    return { fails: 0, until: 0 };
+  }
+}
+function writeLock(v: { fails: number; until: number }) {
+  try {
+    localStorage.setItem(LOCK_KEY, JSON.stringify(v));
+  } catch {
+    /* private mode */
+  }
+}
+function recordFailure(): string | null {
+  const lock = readLock();
+  const fails = lock.fails + 1;
+  if (fails >= MAX_TRIES) {
+    writeLock({ fails: 0, until: Date.now() + LOCK_MINUTES * 60_000 });
+    return `Too many attempts. Try again in ${LOCK_MINUTES} minutes.`;
+  }
+  writeLock({ fails, until: 0 });
+  return null;
+}
+const lockedMessage = () => {
+  const mins = Math.ceil((readLock().until - Date.now()) / 60_000);
+  return mins > 0 ? `Too many attempts. Try again in ${mins} minute${mins === 1 ? "" : "s"}.` : null;
+};
+
+/** Signs admins out after 15 minutes without activity. */
+function useIdleSignOut(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    let timer = 0;
+    const reset = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(async () => {
+        await signOut();
+        toast("Signed out after 15 minutes without activity", "info");
+      }, 15 * 60_000);
+    };
+    const events = ["pointerdown", "keydown", "scroll", "visibilitychange"] as const;
+    events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    reset();
+    return () => {
+      window.clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, reset));
+    };
+  }, [active]);
+}
+
 function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captcha, setCaptcha] = useState("");
+  const [captchaReset, setCaptchaReset] = useState(0);
   const google = useGoogleEnabled();
   return (
     <Card className="mx-auto flex w-full max-w-md flex-col gap-4 p-6">
@@ -126,14 +199,21 @@ function AdminLogin() {
         className="flex flex-col gap-3"
         onSubmit={async (e) => {
           e.preventDefault();
+          const locked = lockedMessage();
+          if (locked) return setError(locked);
+          if (TURNSTILE_SITE_KEY && !captcha) return setError("Complete the check below first.");
           setBusy(true);
-          const res = await signInWithPassword(email, password);
+          const res = await signInWithPassword(email, password, captcha);
           setBusy(false);
-          if (!res.ok) setError(res.message ?? "Couldn't sign in");
+          setCaptcha("");
+          setCaptchaReset((n) => n + 1);
+          if (res.ok) writeLock({ fails: 0, until: 0 });
+          else setError(recordFailure() ?? res.message ?? "Couldn't sign in");
         }}
       >
         <TextField label="Email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
         <TextField label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <Captcha onToken={setCaptcha} resetKey={captchaReset} />
         {error && (
           <p className="rounded-tile bg-coral-soft px-4 py-3 text-subhead text-coral-ink" role="alert">
             {error}
@@ -158,12 +238,17 @@ function MfaCode({ factorId, onDone }: { factorId: string; onDone: () => void })
         className="flex flex-col gap-3"
         onSubmit={async (e) => {
           e.preventDefault();
+          const locked = lockedMessage();
+          if (locked) return toast(locked, "warn");
           setBusy(true);
           try {
             await verifyCode(factorId, code);
+            writeLock({ fails: 0, until: 0 });
             onDone();
           } catch (err) {
-            toast((err as Error).message, "warn");
+            const lockedNow = recordFailure();
+            toast(lockedNow ?? (err as Error).message, "warn");
+            if (lockedNow) await signOut();
           } finally {
             setBusy(false);
           }
@@ -186,7 +271,7 @@ function MfaCode({ factorId, onDone }: { factorId: string; onDone: () => void })
   );
 }
 
-function Console({ mfa, onEnrolled }: { mfa: MfaState; onEnrolled: () => void }) {
+function Console() {
   const [tab, setTab] = useState<Tab>("overview");
   return (
     <div className="flex flex-col gap-5 lg:flex-row">
@@ -208,7 +293,6 @@ function Console({ mfa, onEnrolled }: { mfa: MfaState; onEnrolled: () => void })
         ))}
       </nav>
       <div className="min-w-0 flex-1">
-        {mfa.kind === "none" && <EnrolBanner onEnrolled={onEnrolled} />}
         {tab === "overview" && <Overview />}
         {tab === "members" && <Members />}
         {tab === "moderation" && <Moderation />}
@@ -216,6 +300,7 @@ function Console({ mfa, onEnrolled }: { mfa: MfaState; onEnrolled: () => void })
         {tab === "news" && <NewsAdmin />}
         {tab === "experts" && <ExpertsAdmin />}
         {tab === "payments" && <Payments />}
+        {tab === "security" && <SecurityPanel />}
         {tab === "settings" && <SettingsPanel />}
       </div>
     </div>
@@ -227,10 +312,10 @@ function EnrolBanner({ onEnrolled }: { onEnrolled: () => void }) {
   const [code, setCode] = useState("");
   return (
     <Card className="mb-5 flex flex-col gap-3 border-l-4 border-gold p-5">
-      <p className="text-headline font-semibold">Protect the admin console with an authenticator app</p>
+      <p className="text-headline font-semibold">Set up your authenticator app to open the console</p>
       {!enrol ? (
         <>
-          <p className="text-subhead text-label-2">Use Google Authenticator, Microsoft Authenticator or 1Password. You'll enter a code each time you open the console.</p>
+          <p className="text-subhead text-label-2">Admin access needs an authenticator app (Google Authenticator, Microsoft Authenticator or 1Password). You'll enter a code each time you open the console.</p>
           <Button size="md" className="self-start" onClick={() => startEnrolment().then(setEnrol, (e: Error) => toast(e.message, "warn"))}>
             Set up now
           </Button>
@@ -817,6 +902,67 @@ function SettingsPanel() {
         </Card>
       ))}
       <p className="px-1 text-footnote text-label-2">AI document review stays off until an AI API key is added to the Supabase Edge Function secrets.</p>
+    </div>
+  );
+}
+
+function SecurityPanel() {
+  const [audit, setAudit] = useState<AuditRow[] | null>(null);
+  const [events, setEvents] = useState<PaymentEventRow[]>([]);
+  useEffect(() => {
+    fetchAudit().then(setAudit, (e: Error) => (toast(e.message, "warn"), setAudit([])));
+    fetchPaymentEvents().then(setEvents, () => undefined);
+  }, []);
+  const rejected = events.filter((e) => !e.accepted);
+  return (
+    <div className="flex flex-col gap-6">
+      <section className="flex flex-col gap-3" aria-labelledby="audit">
+        <SectionHeader id="audit" title="Admin activity" />
+        <p className="px-1 text-footnote text-label-2">Every change an admin makes is recorded here and can't be edited or deleted from the app.</p>
+        {!audit && <div className="h-32 animate-pulse rounded-card bg-fill-2" />}
+        {audit?.length === 0 && <p className="px-1 text-subhead text-label-2">No admin changes yet.</p>}
+        <ul className="flex flex-col gap-2">
+          {audit?.map((a) => (
+            <li key={a.id}>
+              <Card className="p-4">
+                <p className="text-callout font-semibold">
+                  {a.action} · {a.target_table}
+                  {a.target_id ? <span className="font-normal text-label-2"> · {a.target_id.slice(0, 8)}</span> : null}
+                </p>
+                <p className="text-footnote text-label-2">
+                  {a.actor_email ?? (a.actor ? `admin ${a.actor.slice(0, 8)}` : "admin")} · {new Date(a.created_at).toLocaleString("en-NZ")}
+                </p>
+                {Object.keys(a.changes).length > 0 && (
+                  <p className="mt-1 text-footnote break-words">
+                    {Object.entries(a.changes)
+                      .slice(0, 4)
+                      .map(([k, v]) => `${k}: ${JSON.stringify(v.from)} → ${JSON.stringify(v.to)}`)
+                      .join(" · ")}
+                  </p>
+                )}
+              </Card>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section className="flex flex-col gap-3" aria-labelledby="pay-events">
+        <SectionHeader id="pay-events" title="Payment notifications" />
+        <p className="px-1 text-footnote text-label-2">
+          {events.length} received recently · {rejected.length} rejected. Rejected ones had a bad signature, an unknown order or the wrong amount.
+        </p>
+        <ul className="flex flex-col gap-2">
+          {rejected.slice(0, 20).map((e) => (
+            <li key={e.id}>
+              <Card className="p-4">
+                <p className="text-callout font-semibold text-coral-ink">{e.reason}</p>
+                <p className="text-footnote text-label-2">
+                  Order {e.order_ref || "?"} · status {e.status_code || "?"} · {new Date(e.created_at).toLocaleString("en-NZ")}
+                </p>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }

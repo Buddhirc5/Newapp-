@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/Controls";
 import { Sheet } from "@/components/ui/Sheet";
 import { toast } from "@/components/ui/Toast";
+import { Captcha, TURNSTILE_SITE_KEY } from "@/components/Captcha";
 import { sendSignInCode, verifySignInCode } from "@/lib/sync";
 
 /** Email one-time-code sign-in, shared by Me, the Board and chat. */
@@ -12,12 +13,19 @@ export function SignInSheet({ open, onClose }: { open: boolean; onClose: () => v
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captcha, setCaptcha] = useState("");
+  const [captchaReset, setCaptchaReset] = useState(0);
+  const needsCaptcha = Boolean(TURNSTILE_SITE_KEY) && !captcha;
 
   const send = async () => {
+    if (needsCaptcha) return setError("Complete the check below first.");
     setBusy(true);
     setError(null);
-    const res = await sendSignInCode(email.trim());
+    const res = await sendSignInCode(email.trim(), captcha);
     setBusy(false);
+    // Each CAPTCHA token works once.
+    setCaptcha("");
+    setCaptchaReset((n) => n + 1);
     if (res.ok) setSent(true);
     else setError(res.message ?? "Couldn't send the code.");
   };
@@ -44,7 +52,7 @@ export function SignInSheet({ open, onClose }: { open: boolean; onClose: () => v
             {busy ? "Checking…" : "Sign in"}
           </Button>
         ) : (
-          <Button block disabled={busy || !/^\S+@\S+\.\S+$/.test(email)} onClick={send}>
+          <Button block disabled={busy || needsCaptcha || !/^\S+@\S+\.\S+$/.test(email)} onClick={send}>
             {busy ? "Sending…" : "Email me a code"}
           </Button>
         )
@@ -58,7 +66,10 @@ export function SignInSheet({ open, onClose }: { open: boolean; onClose: () => v
         }}
       >
         {!sent ? (
-          <TextField label="Email" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} data-autofocus />
+          <>
+            <TextField label="Email" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} data-autofocus />
+            <Captcha onToken={setCaptcha} resetKey={captchaReset} />
+          </>
         ) : (
           <TextField
             label="6-digit code"

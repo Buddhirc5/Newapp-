@@ -19,7 +19,7 @@ import { HAS_SUPABASE } from "@/lib/env";
 import { formatLkr, relativeDay, todayKey } from "@/lib/format";
 import { LANG_LABEL, useT } from "@/lib/i18n";
 import { copyText, saveFile } from "@/lib/platform";
-import { loadMember, PLAN_NAME, useMember } from "@/lib/community";
+import { deleteMyAccount, loadMember, PLAN_NAME, useMember } from "@/lib/community";
 import { signOut, useAuth } from "@/lib/sync";
 import { SignInSheet } from "@/components/SignInSheet";
 import { MemberCard } from "@/components/MemberCard";
@@ -34,6 +34,8 @@ export function Me() {
   const [editing, setEditing] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const showUpgrade = useUpgrade((s) => s.show);
+  const [signingOut, setSigningOut] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const memberPlan = useMember((s) => s.profile?.plan);
 
   // Coming back from PayHere's payment page.
@@ -213,11 +215,20 @@ export function Me() {
                   </IconTile>
                 }
                 title="Sign out"
+                subtitle="On this device, all devices, or clear this device"
                 destructive
-                onClick={() => {
-                  void signOut();
-                  toast("Signed out", "info");
-                }}
+                onClick={() => setSigningOut(true)}
+              />
+              <ListRow
+                icon={
+                  <IconTile tint="coral">
+                    <Trash2 className="size-5" aria-hidden />
+                  </IconTile>
+                }
+                title="Delete my account"
+                subtitle="Removes your account and everything you've posted"
+                destructive
+                onClick={() => setDeleting(true)}
               />
             </>
           ) : HAS_SUPABASE ? (
@@ -312,6 +323,17 @@ export function Me() {
           />
           <ListRow
             icon={
+              <IconTile tint="teal">
+                <Lock className="size-5" aria-hidden />
+              </IconTile>
+            }
+            title="Privacy and your data"
+            subtitle="What we keep, who can see it and how to delete it"
+            accessory="chevron"
+            to="/privacy"
+          />
+          <ListRow
+            icon={
               <IconTile tint="lavender">
                 <Database className="size-5" aria-hidden />
               </IconTile>
@@ -327,6 +349,8 @@ export function Me() {
 
       <ProfileSheet open={editing} onClose={() => setEditing(false)} />
       <SignInSheet open={signingIn} onClose={() => setSigningIn(false)} />
+      <SignOutSheet open={signingOut} onClose={() => setSigningOut(false)} onClear={() => state.resetAll()} />
+      <DeleteAccountSheet open={deleting} onClose={() => setDeleting(false)} onDeleted={() => state.resetAll()} />
       <AlertDialog
         open={confirmReset}
         title="Reset KiwiPath?"
@@ -408,4 +432,76 @@ function ProfileSheet({ open, onClose }: { open: boolean; onClose: () => void })
   );
 }
 
+function SignOutSheet({ open, onClose, onClear }: { open: boolean; onClose: () => void; onClear: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const run = async (everywhere: boolean, clear: boolean) => {
+    setBusy(true);
+    await signOut(everywhere);
+    if (clear) onClear();
+    setBusy(false);
+    onClose();
+    toast(everywhere ? "Signed out on every device" : clear ? "Signed out and cleared this device" : "Signed out", "info");
+  };
+  return (
+    <Sheet open={open} onClose={onClose} title="Sign out" description="Your progress stays saved in your account.">
+      <div className="flex flex-col gap-3">
+        <Button block variant="tinted" disabled={busy} onClick={() => run(false, false)}>
+          Sign out on this device
+        </Button>
+        <Button block variant="tinted" disabled={busy} onClick={() => run(false, true)}>
+          Sign out and clear this device
+        </Button>
+        <p className="px-1 text-footnote text-label-2">Use this on a shared or borrowed phone. Your saved progress is removed from this browser only.</p>
+        <Button block variant="destructive" disabled={busy} onClick={() => run(true, false)}>
+          Sign out of all devices
+        </Button>
+        <p className="px-1 text-footnote text-label-2">If you think someone else used your account, sign out everywhere.</p>
+      </div>
+    </Sheet>
+  );
+}
 
+function DeleteAccountSheet({ open, onClose, onDeleted }: { open: boolean; onClose: () => void; onDeleted: () => void }) {
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Delete your account?"
+      description="This can't be undone."
+      footer={
+        <Button
+          block
+          variant="destructive"
+          disabled={busy || typed !== "DELETE"}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await deleteMyAccount();
+              onDeleted();
+              onClose();
+              toast("Your account and data were deleted", "info");
+            } catch (e) {
+              toast((e as Error).message, "warn");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? "Deleting…" : "Delete my account"}
+        </Button>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <ul className="list-disc pl-5 text-subhead text-label-2">
+          <li>Your profile, journey, CV drafts, listings, messages, bookings and AI reviews are deleted.</li>
+          <li>Uploaded documents and photos are deleted.</li>
+          <li>Payment receipts are kept without your name, because the law requires businesses to keep financial records.</li>
+          <li>Export your data first from "Your data" if you want a copy.</li>
+        </ul>
+        <TextField label="Type DELETE to confirm" autoComplete="off" value={typed} onChange={(e) => setTyped(e.target.value.trim())} />
+      </div>
+    </Sheet>
+  );
+}

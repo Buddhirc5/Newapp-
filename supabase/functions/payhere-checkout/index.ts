@@ -6,19 +6,15 @@
 import { crypto } from "jsr:@std/crypto@1";
 import { encodeHex } from "jsr:@std/encoding@1/hex";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { allowedOrigin, withCors } from "./cors.ts";
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json", "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, apikey, content-type, x-client-info" },
-  });
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 export async function md5Upper(text: string): Promise<string> {
   return encodeHex(await crypto.subtle.digest("MD5", new TextEncoder().encode(text))).toUpperCase();
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return json({ ok: true });
+Deno.serve(withCors(async (req) => {
   const url = Deno.env.get("SUPABASE_URL")!;
   const service = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const asUser = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
@@ -38,6 +34,8 @@ Deno.serve(async (req) => {
   if (phone.length < 9) return json({ error: "Add your mobile number. PayHere needs it for the receipt." }, 400);
 
   const price = Number(setting(plan === "ultra" ? "ultra_price_lkr" : "main_price_lkr") ?? (plan === "ultra" ? 5990 : 1990));
+  // The database already limits prices; this is a second guard before charging anyone.
+  if (!Number.isFinite(price) || price < 300 || price > 50000) return json({ error: "This package isn't available right now." }, 503);
   const amount = price.toFixed(2);
   const { data: profile } = await service.from("profiles").select("display_name, city").eq("id", auth.user.id).single();
   const [first, ...rest] = String(profile?.display_name || "KiwiPath member").trim().split(/\s+/);
@@ -50,7 +48,9 @@ Deno.serve(async (req) => {
   if (error || !order) return json({ error: "Couldn't start the payment. Try again." }, 500);
   await service.from("payments").update({ provider_ref: order.id }).eq("id", order.id);
 
-  const site = (body.returnUrl && /^https:\/\/[\w.-]+(:\d+)?\//.test(body.returnUrl) ? new URL(body.returnUrl).origin : "https://kiwipath-nz.vercel.app");
+  // Only send members back to KiwiPath itself, never to another site.
+  const requested = body.returnUrl ? (() => { try { return new URL(body.returnUrl).origin; } catch { return null; } })() : null;
+  const site = allowedOrigin(requested) ?? "https://kiwipath-nz.vercel.app";
   const sandbox = Deno.env.get("PAYHERE_SANDBOX") === "true";
   const hash = await md5Upper(merchantId + order.id + amount + "LKR" + (await md5Upper(secret)));
 
@@ -79,4 +79,4 @@ Deno.serve(async (req) => {
       hash,
     },
   });
-});
+}));
