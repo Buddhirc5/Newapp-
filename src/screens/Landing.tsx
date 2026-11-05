@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/Button";
 import { toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/cn";
 import { HAS_SUPABASE } from "@/lib/env";
-import { signInWithGoogle } from "@/lib/sync";
+import { signInWithGoogle, useGoogleEnabled } from "@/lib/sync";
 import type { Tint } from "@/types";
 
 const FEATURES: { icon: LucideIcon; title: string; text: string; tint: Tint }[] = [
@@ -58,8 +58,9 @@ export function Landing() {
   const reduce = useReducedMotion();
   const [emailOpen, setEmailOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const google = useGoogleEnabled();
 
-  const google = async () => {
+  const startGoogle = async () => {
     setBusy(true);
     const res = await signInWithGoogle();
     if (!res.ok) {
@@ -75,11 +76,13 @@ export function Landing() {
     <div className="flex flex-col gap-3">
       {HAS_SUPABASE ? (
         <>
-          <Button variant={dark ? "light" : "dark"} onClick={google} disabled={busy} icon={<GoogleMark />} block>
-            {busy ? "Opening Google…" : "Continue with Google"}
-          </Button>
-          <Button variant={dark ? "tinted" : "outline"} className={dark ? "bg-paper/10 text-paper hover:bg-paper/20" : ""} onClick={() => setEmailOpen(true)} icon={<Mail className="size-5" aria-hidden />} block>
-            Use my email instead
+          {google && (
+            <Button variant={dark ? "light" : "dark"} onClick={startGoogle} disabled={busy} icon={<GoogleMark />} block>
+              {busy ? "Opening Google…" : "Continue with Google"}
+            </Button>
+          )}
+          <Button variant={google ? (dark ? "tinted" : "outline") : dark ? "light" : "dark"} className={dark ? "bg-paper/10 text-paper hover:bg-paper/20" : ""} onClick={() => setEmailOpen(true)} icon={<Mail className="size-5" aria-hidden />} block>
+            {google ? "Use my email instead" : "Continue with email"}
           </Button>
         </>
       ) : null}

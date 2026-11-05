@@ -47,7 +47,7 @@ import {
 } from "@/lib/community";
 import { HAS_SUPABASE } from "@/lib/env";
 import { formatNumber, relativeDay } from "@/lib/format";
-import { signInWithGoogle, signInWithPassword, useAuth } from "@/lib/sync";
+import { signInWithGoogle, signInWithPassword, useAuth, useGoogleEnabled } from "@/lib/sync";
 
 type Tab = "overview" | "members" | "moderation" | "agencies" | "payments" | "settings";
 
@@ -95,6 +95,7 @@ function AdminLogin() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const google = useGoogleEnabled();
   return (
     <Card className="mx-auto flex w-full max-w-md flex-col gap-4 p-6">
       <div className="flex items-center gap-3">
@@ -106,9 +107,11 @@ function AdminLogin() {
           <p className="text-footnote text-label-2">Protected by an authenticator app</p>
         </div>
       </div>
-      <Button variant="outline" icon={<GoogleMark />} onClick={() => void signInWithGoogle()} block>
-        Continue with Google
-      </Button>
+      {google && (
+        <Button variant="outline" icon={<GoogleMark />} onClick={() => void signInWithGoogle()} block>
+          Continue with Google
+        </Button>
+      )}
       <form
         className="flex flex-col gap-3"
         onSubmit={async (e) => {

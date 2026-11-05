@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { pickData, useApp, type AppData } from "@/store/app";
-import { HAS_SUPABASE } from "./env";
+import { useEffect, useState } from "react";
+import { HAS_SUPABASE, SUPABASE_ANON_KEY, SUPABASE_URL } from "./env";
 import { getSupabase } from "./supabase";
 
 export interface AuthState {
@@ -135,4 +136,28 @@ export async function signInWithPassword(email: string, password: string): Promi
   if (!sb) return { ok: false, message: "Sign-in isn't available in this version." };
   const { error } = await sb.auth.signInWithPassword({ email, password });
   return error ? { ok: false, message: error.message } : { ok: true };
+}
+
+let googlePromise: Promise<boolean> | null = null;
+
+/** Asks Supabase which sign-in methods are switched on, so the Google button only shows when it works. */
+export function googleEnabled(): Promise<boolean> {
+  if (!HAS_SUPABASE) return Promise.resolve(false);
+  googlePromise ??= fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_ANON_KEY } })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d: { external?: { google?: boolean } } | null) => Boolean(d?.external?.google))
+    .catch(() => false);
+  return googlePromise;
+}
+
+export function useGoogleEnabled(): boolean {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void googleEnabled().then((v) => active && setOn(v));
+    return () => {
+      active = false;
+    };
+  }, []);
+  return on;
 }
