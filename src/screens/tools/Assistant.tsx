@@ -2,10 +2,12 @@ import { RotateCcw } from "lucide-react";
 import { Page } from "@/components/layout/Page";
 import { ChatThread, Composer } from "@/components/assistant/Chat";
 import { useAssistant } from "@/lib/assistant";
+import { useKeyboardInset } from "@/components/assistant/AskFab";
 
 /** Full-screen version of the assistant. The floating button opens the same chat anywhere. */
 export function Assistant() {
   const a = useAssistant();
+  const kb = useKeyboardInset(true);
   return (
     <Page
       title="Ask KiwiPath"
@@ -23,7 +25,10 @@ export function Assistant() {
       <div className="flex min-h-[55dvh] flex-col pb-36 lg:pb-28">
         <ChatThread a={a} />
       </div>
-      <div className="fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 gutter-x pb-2 lg:bottom-4 lg:left-72">
+      <div
+        className="fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-50 gutter-x pb-2 lg:bottom-4 lg:left-72"
+        style={kb.bottom ? { bottom: kb.bottom } : undefined}
+      >
         <div className="mx-auto max-w-3xl">
           <Composer a={a} />
         </div>

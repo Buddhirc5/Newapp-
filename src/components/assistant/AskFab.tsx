@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Maximize2, RotateCcw, Sparkles, X } from "lucide-react";
@@ -13,6 +13,7 @@ export function AskFab() {
   const [open, setOpen] = useState(false);
   const reduce = useReducedMotion();
   const a = useAssistant();
+  const kb = useKeyboardInset(open);
   // Hidden where it would sit on top of a message box.
   if (pathname === "/assistant" || /^\/(chats|groups)\/./.test(pathname)) return null;
 
@@ -44,6 +45,7 @@ export function AskFab() {
               animate={{ y: 0, opacity: 1 }}
               exit={reduce ? { opacity: 0 } : { y: 40, opacity: 0 }}
               transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
+              style={kb.height ? { bottom: kb.bottom, maxHeight: kb.height - 8 } : undefined}
               className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col rounded-t-[1.8rem] bg-bg shadow-float sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[26rem] sm:rounded-[1.8rem] lg:right-8 lg:bottom-8"
               onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
             >
@@ -71,7 +73,7 @@ export function AskFab() {
                 <ChatThread a={a} compact onNavigate={() => setOpen(false)} />
               </div>
               <div className="border-t border-sep px-3 pt-2" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
-                <Composer a={a} autoFocus />
+                <Composer a={a} autoFocus={!window.matchMedia("(pointer: coarse)").matches} />
               </div>
             </motion.section>
           </motion.div>
@@ -79,4 +81,29 @@ export function AskFab() {
       </AnimatePresence>
     </>
   );
+}
+
+/**
+ * When the on-screen keyboard opens, the visible area shrinks. Returns how far
+ * to lift the panel and how tall it may be, so the question box stays visible.
+ */
+export function useKeyboardInset(active: boolean) {
+  const [state, setState] = useState({ bottom: 0, height: 0 });
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!active || !vv) return;
+    const update = () => {
+      const bottom = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+      // Only adjust when a keyboard is actually open.
+      setState(bottom > 80 ? { bottom, height: vv.height } : { bottom: 0, height: 0 });
+    };
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, [active]);
+  return state;
 }
