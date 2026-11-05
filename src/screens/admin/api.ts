@@ -60,8 +60,10 @@ export interface Analytics {
 
 export async function fetchAnalytics(days: number): Promise<Analytics> {
   const { data, error } = await (await sb()).rpc("admin_analytics", { p_days: days });
-  if (error) throw error;
-  return data as Analytics;
+  if (error) throw new Error(/admin_analytics|function/i.test(error.message) ? "Analytics aren't set up yet. Run the admin analytics database update (supabase/migrations/20261110000000_admin_analytics.sql)." : error.message);
+  const a = data as Analytics | null;
+  if (!a || !a.kpis || !Array.isArray(a.daily) || !Array.isArray(a.funnel)) throw new Error("Analytics came back incomplete. Try again.");
+  return a;
 }
 
 export interface Member {

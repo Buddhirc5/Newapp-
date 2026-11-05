@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { pickData, useApp, type AppData } from "@/store/app";
+import { freshData, pickData, useApp, type AppData } from "@/store/app";
+import { readItem, writeItem } from "./storage";
 import { useEffect, useState } from "react";
 import { HAS_SUPABASE, SUPABASE_ANON_KEY, SUPABASE_URL } from "./env";
 import { getSupabase } from "./supabase";
@@ -29,9 +30,24 @@ export function chooseSource(local: AppData, remote: { state: AppData; updated_a
   return new Date(remote.updated_at).getTime() > new Date(local.updatedAt).getTime() ? "remote" : "local";
 }
 
+// Which account the progress saved in this browser belongs to. Without it, a
+// second person signing in on a shared phone could have the first person's
+// journey, CV and plans uploaded into their account.
+const OWNER_KEY = "kp-data-owner";
+export const dataOwner = () => readItem(OWNER_KEY);
+const setDataOwner = (id: string) => writeItem(OWNER_KEY, id);
+
 async function pull(userId: string) {
   const sb = await getSupabase();
   if (!sb) return;
+  // Progress saved here belongs to a different account: clear it before
+  // anything else (even offline), and never merge or upload it.
+  const foreign = Boolean(dataOwner()) && dataOwner() !== userId;
+  if (foreign) {
+    const settings = useApp.getState().settings;
+    useApp.getState().replaceData({ ...freshData(), onboarded: useApp.getState().onboarded, settings });
+  }
+  setDataOwner(userId);
   useAuth.setState({ status: "syncing", error: null });
   const { data, error } = await sb.from(TABLE).select("state, updated_at").eq("user_id", userId).maybeSingle();
   if (error) {
@@ -39,6 +55,11 @@ async function pull(userId: string) {
     return;
   }
   const local = pickData(useApp.getState());
+  if (foreign) {
+    if (data) useApp.getState().replaceData({ ...(data.state as AppData), settings: local.settings });
+    useAuth.setState({ status: data ? "synced" : "idle", lastSyncedAt: data ? new Date().toISOString() : null });
+    return;
+  }
   const source = chooseSource(local, data as { state: AppData; updated_at: string } | null);
   if (source === "remote" && data) {
     useApp.getState().replaceData({ ...(data.state as AppData), settings: local.settings });
@@ -54,7 +75,8 @@ async function push(userId: string) {
   const sb = await getSupabase();
   if (!sb) return;
   const state = pickData(useApp.getState());
-  if (state.isSample) return;
+  // Only upload progress that belongs to this account (see dataOwner).
+  if (state.isSample || dataOwner() !== userId) return;
   useAuth.setState({ status: "syncing" });
   const { error } = await sb.from(TABLE).upsert({ user_id: userId, state, updated_at: state.updatedAt });
   useAuth.setState(error ? { status: "error", error: error.message } : { status: "synced", lastSyncedAt: new Date().toISOString(), error: null });

@@ -31,6 +31,7 @@ import { TextField } from "@/components/ui/Controls";
 import { toast } from "@/components/ui/Toast";
 import type { Listing } from "@/data/board";
 import { mfaState, startEnrolment, verifyCode, type MfaState } from "@/lib/adminAuth";
+import { getSupabase } from "@/lib/supabase";
 import { cn } from "@/lib/cn";
 import {
   adminNews,
@@ -73,31 +74,73 @@ export function Admin() {
   const ready = useAuth((s) => s.ready);
   const isAdmin = useMember((s) => s.isAdmin);
   const loading = useMember((s) => s.loading);
-  const [mfa, setMfa] = useState<MfaState>({ kind: "loading" });
-  useIdleSignOut(Boolean(user && isAdmin));
+  const memberFor = useMember((s) => s.userId);
+  // The authenticator state is always tied to the account it was checked for.
+  const [mfa, setMfa] = useState<MfaState & { userId: string | null }>({ kind: "loading", userId: null });
+  const sessionFresh = useIdleSignOut(Boolean(user && isAdmin && memberFor === user?.id));
 
-  const refreshMfa = useCallback(() => {
-    mfaState().then(setMfa, () => setMfa({ kind: "none" }));
-  }, []);
+  const userId = user?.id ?? null;
+  // `quiet` re-checks in the background without hiding the console first; the
+  // screen only changes if the answer changes (for example the session lost
+  // its authenticator step), so admins don't lose their place.
+  const refreshMfa = useCallback(
+    (quiet = false) => {
+      if (!userId) return;
+      if (!quiet) setMfa({ kind: "loading", userId });
+      mfaState().then(
+        // Keep the same object when nothing changed, so the console isn't re-rendered.
+        (m) => setMfa((cur) => (cur.userId === userId && cur.kind === m.kind ? cur : { ...m, userId })),
+        () => setMfa({ kind: "none", userId }),
+      );
+    },
+    [userId],
+  );
+
   useEffect(() => {
-    if (user && isAdmin) refreshMfa();
-  }, [user, isAdmin, refreshMfa]);
+    setMfa({ kind: "loading", userId: null });
+    if (userId && isAdmin && memberFor === userId) refreshMfa();
+  }, [userId, isAdmin, memberFor, refreshMfa]);
+
+  // Re-check on every sign-in event, and when the tab comes back into focus,
+  // so a session that lost its authenticator step (or changed account in
+  // another tab) never keeps showing the console.
+  useEffect(() => {
+    let stop = () => {};
+    void getSupabase()?.then((sb) => {
+      const { data } = sb.auth.onAuthStateChange((event) => {
+        if (["SIGNED_IN", "TOKEN_REFRESHED", "MFA_CHALLENGE_VERIFIED", "USER_UPDATED"].includes(event)) refreshMfa(true);
+      });
+      stop = () => data.subscription.unsubscribe();
+    });
+    const onFocus = () => document.visibilityState === "visible" && refreshMfa(true);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [refreshMfa]);
+
+  const memberReady = Boolean(userId) && memberFor === userId && !loading;
+  const mfaReady = mfa.userId === userId && mfa.kind !== "loading";
 
   let body: ReactNode;
   if (!HAS_SUPABASE) body = <Notice title="Online only">The admin console works in the online version.</Notice>;
-  else if (!ready || loading) body = <div className="h-40 animate-pulse rounded-card bg-fill-2" />;
+  else if (!ready) body = <div className="h-40 animate-pulse rounded-card bg-fill-2" />;
   else if (!user) body = <AdminLogin />;
+  else if (!memberReady) body = <div className="h-40 animate-pulse rounded-card bg-fill-2" />;
   else if (!isAdmin) body = <Notice tone="warn" title="Admins only">This account isn't an admin. Ask the owner to add you in Supabase (public.admins).</Notice>;
-  else if (mfa.kind === "loading") body = <div className="h-40 animate-pulse rounded-card bg-fill-2" />;
-  else if (mfa.kind === "needs-code") body = <MfaCode factorId={mfa.factorId} onDone={refreshMfa} />;
+  else if (!mfaReady || !sessionFresh) body = <div className="h-40 animate-pulse rounded-card bg-fill-2" />;
+  else if (mfa.kind === "needs-code") body = <MfaCode factorId={mfa.factorId} onDone={() => refreshMfa()} />;
   // Admin rights only work after the authenticator step, so setting one up is required.
   else if (mfa.kind === "none")
     body = (
       <div className="mx-auto w-full max-w-md">
-        <EnrolBanner onEnrolled={refreshMfa} />
+        <EnrolBanner onEnrolled={() => refreshMfa()} />
       </div>
     );
-  else return <Console />;
+  // Only an authenticator-verified session for this exact account reaches the console.
+  else if (mfa.kind === "verified") return <Console />;
+  else body = <div className="h-40 animate-pulse rounded-card bg-fill-2" />;
 
   return (
     <Page title="Admin" back={{ to: "/me", label: "Me" }} wide>
@@ -141,26 +184,85 @@ const lockedMessage = () => {
   return mins > 0 ? `Too many attempts. Try again in ${mins} minute${mins === 1 ? "" : "s"}.` : null;
 };
 
-/** Signs admins out after 15 minutes without activity. */
-function useIdleSignOut(active: boolean) {
+const IDLE_MS = 15 * 60_000;
+const ACTIVE_KEY = "kp-admin-active";
+
+function touchActivity() {
+  try {
+    localStorage.setItem(ACTIVE_KEY, String(Date.now()));
+  } catch {
+    /* private mode */
+  }
+}
+
+/**
+ * Signs admins out after 15 minutes without activity, including time the tab
+ * was closed: admin sessions are saved in the browser, so without this a
+ * reopened tab hours later would skip the authenticator code.
+ * Returns true once it's safe to show the console.
+ */
+function useIdleSignOut(active: boolean): boolean {
+  const [checked, setChecked] = useState(false);
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      setChecked(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const sb = await getSupabase();
+      const { data } = (await sb?.auth.getSession()) ?? { data: { session: null } };
+      const signedInAt = Date.parse(data.session?.user.last_sign_in_at ?? "") || 0;
+      let last = 0;
+      try {
+        last = Number(localStorage.getItem(ACTIVE_KEY)) || 0;
+      } catch {
+        /* private mode */
+      }
+      // A sign-in newer than the last activity is a fresh session, not a stale one.
+      const lastSeen = Math.max(last, signedInAt);
+      if (Date.now() - lastSeen > IDLE_MS) {
+        await signOut();
+        toast("Signed out after 15 minutes without activity", "info");
+        return;
+      }
+      touchActivity();
+      if (!cancelled) setChecked(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [active]);
+
+  useEffect(() => {
+    if (!active || !checked) return;
     let timer = 0;
+    let lastWrite = 0;
     const reset = () => {
       window.clearTimeout(timer);
+      if (Date.now() - lastWrite > 15_000) {
+        lastWrite = Date.now();
+        touchActivity();
+      }
       timer = window.setTimeout(async () => {
         await signOut();
         toast("Signed out after 15 minutes without activity", "info");
-      }, 15 * 60_000);
+      }, IDLE_MS);
     };
     const events = ["pointerdown", "keydown", "scroll", "visibilitychange"] as const;
     events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    // Back/forward cache could show a signed-out admin page; reload it instead.
+    const onShow = (e: PageTransitionEvent) => e.persisted && window.location.reload();
+    window.addEventListener("pageshow", onShow);
     reset();
     return () => {
       window.clearTimeout(timer);
       events.forEach((e) => window.removeEventListener(e, reset));
+      window.removeEventListener("pageshow", onShow);
     };
-  }, [active]);
+  }, [active, checked]);
+
+  return checked;
 }
 
 function AdminLogin() {

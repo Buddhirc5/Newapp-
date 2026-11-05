@@ -256,15 +256,24 @@ interface MemberState {
   profile: MemberProfile | null;
   isAdmin: boolean;
   loading: boolean;
+  /** The account this profile and admin flag were loaded for. */
+  userId: string | null;
 }
 
-export const useMember = create<MemberState>(() => ({ profile: null, isAdmin: false, loading: false }));
+export const useMember = create<MemberState>(() => ({ profile: null, isAdmin: false, loading: false, userId: null }));
+
+// When the signed-in account changes, forget the previous account's profile and
+// admin flag immediately (in the same update), so no screen can render with
+// someone else's permissions while the new ones load.
+useAuth.subscribe((state, prev) => {
+  if (state.user?.id !== prev.user?.id) useMember.setState({ profile: null, isAdmin: false, loading: Boolean(state.user), userId: null });
+});
 
 export async function loadMember(): Promise<void> {
   const user = useAuth.getState().user;
   const sb = await getSupabase();
   if (!sb || !user) {
-    useMember.setState({ profile: null, isAdmin: false, loading: false });
+    useMember.setState({ profile: null, isAdmin: false, loading: false, userId: null });
     return;
   }
   useMember.setState({ loading: true });
@@ -275,7 +284,9 @@ export async function loadMember(): Promise<void> {
   ]);
   // Older databases without is_admin_account() fall back to is_admin().
   const admin = adminRes.error ? (await sb.rpc("is_admin")).data : adminRes.data;
-  useMember.setState({ profile: (profile as MemberProfile) ?? null, isAdmin: Boolean(admin), loading: false });
+  // Ignore the answer if someone else signed in while it was loading.
+  if (useAuth.getState().user?.id !== user.id) return;
+  useMember.setState({ profile: (profile as MemberProfile) ?? null, isAdmin: Boolean(admin), loading: false, userId: user.id });
 }
 
 export type MemberPatch = Partial<
