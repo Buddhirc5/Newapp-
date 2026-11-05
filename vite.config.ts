@@ -38,6 +38,8 @@ export default defineConfig(({ mode }) => {
           // PDF reading and writing load only when someone uses CV Studio; don't make every visitor download them.
           globIgnores: ["**/pdf-*.js", "**/pdf.worker*", "**/jspdf*.js", "**/html2canvas*.js", "**/purify*.js", "**/index.es-*.js"],
           navigateFallback: "/index.html",
+          // Public search pages are plain HTML; let the network serve them.
+          navigateFallbackDenylist: [/^\/learn/, /^\/visa/, /^\/cities/, /^\/sitemap/, /^\/robots/],
         },
       }),
     );
@@ -46,6 +48,7 @@ export default defineConfig(({ mode }) => {
   return {
     base: isPreview ? "./" : "/",
     plugins,
+    define: { __BUILD_ID__: JSON.stringify((process.env.VERCEL_GIT_COMMIT_SHA ?? "local").slice(0, 7)) },
     resolve: {
       alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
     },

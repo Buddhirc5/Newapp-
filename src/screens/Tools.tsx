@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { ArrowRight, BadgeCheck, BookOpen, Building2, Compass, FileText, PenLine, PiggyBank, Files, Mic, ScanText, School, Search, ShieldCheck, Sparkles, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowRight, BadgeCheck, Briefcase, CalendarRange, Landmark, MessageCircleQuestion, BookOpen, Building2, Compass, FileText, PenLine, PiggyBank, Files, Mic, ScanText, School, Search, ShieldCheck, Sparkles, Wallet, type LucideIcon } from "lucide-react";
 import { Page } from "@/components/layout/Page";
 import { Mascot, Sparkle, type Mood, type Pose } from "@/components/Mascot";
 import { TINT } from "@/components/tints";
@@ -30,6 +30,10 @@ export const TOOLS: ToolInfo[] = [
 ];
 
 const MORE = [
+  { to: "/assistant", title: "Ask KiwiPath (AI)", desc: "Ask anything about visas, jobs, money and settling in", tint: "pink" as Tint, icon: MessageCircleQuestion },
+  { to: "/tools/timeline", title: "My Timeline", desc: "A dated plan from today to landing in NZ", tint: "malibu" as Tint, icon: CalendarRange },
+  { to: "/tools/jobs", title: "Jobs", desc: "Live NZ jobs for your field and city", tint: "green" as Tint, icon: Briefcase },
+  { to: "/tools/cost-of-living", title: "Cost of Living", desc: "Compare 14 NZ cities in dollars and rupees", tint: "gold" as Tint, icon: Landmark },
   { to: "/tools/doc-check", title: "Document Check", desc: "Upload a document, get a fix-it checklist", tint: "lavender" as Tint, icon: ScanText },
   { to: "/experts", title: "Experts", desc: "Book lawyers, advisers and mentors", tint: "coral" as Tint, icon: BadgeCheck },
   { to: "/guides", title: "Guides", desc: "Funds, relationship proof, experience letters, SOPs", tint: "gold" as Tint, icon: BookOpen },
@@ -38,7 +42,7 @@ const MORE = [
   { to: "/agencies", title: "Agencies", desc: "Education agencies checked by our team", tint: "green" as Tint, icon: Building2 },
   { to: "/paths", title: "Visa paths", desc: "Compare the ways to move to New Zealand", tint: "malibu" as Tint, icon: Compass },
   { to: "/tools/courses", title: "Course Shortlist", desc: "Compare Masters programmes side by side", tint: "teal" as Tint, icon: School },
-  { to: "/tools/documents", title: "Documents", desc: "Track every certificate and translation", tint: "green" as Tint, icon: Files },
+  { to: "/tools/documents", title: "Visa Documents", desc: "Track every document, with expiry alerts", tint: "green" as Tint, icon: Files },
   { to: "/tools/occupations", title: "Occupation Check", desc: "Is your job regulated in NZ?", tint: "gold" as Tint, icon: Search },
 ];
 

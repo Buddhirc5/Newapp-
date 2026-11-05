@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { Check, Crown, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { TextField } from "@/components/ui/Controls";
+import { SegmentedControl, TextField } from "@/components/ui/Controls";
 import { Sheet } from "@/components/ui/Sheet";
 import { toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/cn";
@@ -28,7 +28,7 @@ export function aiErrorToast(e: unknown) {
   if (err?.upgrade) useUpgrade.getState().show(err.message);
 }
 
-const SHARED = ["AI Document Check for passports, bank statements, letters and CVs", "AI CV polish and SOP drafts", "AI journey coach, refreshed every night", "Every free tool, guide and community feature"];
+const SHARED = ["Ask KiwiPath AI assistant", "AI Document Check for passports, bank statements, letters and CVs", "AI CV polish and SOP drafts", "AI journey coach, refreshed every night", "Every free tool, guide and community feature"];
 
 export function UpgradeSheet() {
   const { open, reason, hide } = useUpgrade();
@@ -38,6 +38,7 @@ export function UpgradeSheet() {
   const joinWaitlist = useApp((s) => s.joinWaitlist);
   const [pkgs, setPkgs] = useState<Packages | null>(null);
   const [choice, setChoice] = useState<PaidPlan>("pro");
+  const [billing, setBilling] = useState<"month" | "year">("year");
   const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
   const [email, setEmail] = useState("");
@@ -49,14 +50,17 @@ export function UpgradeSheet() {
     if (profile?.plan === "pro") setChoice("ultra");
   }, [open, profile?.plan]);
 
-  const p = pkgs ?? { mainPrice: 1990, ultraPrice: 5990, mainLimit: 15, ultraLimit: 60, paymentsEnabled: false };
+  const p = pkgs ?? { mainPrice: 1990, ultraPrice: 5990, mainYearly: 19900, ultraYearly: 59900, mainLimit: 15, ultraLimit: 60, paymentsEnabled: false };
+  const yearly = billing === "year";
+  const priceOf = (id: PaidPlan) => (id === "ultra" ? (yearly ? p.ultraYearly : p.ultraPrice) : yearly ? p.mainYearly : p.mainPrice);
+  const saving = (id: PaidPlan) => Math.max(0, (id === "ultra" ? p.ultraPrice : p.mainPrice) * 12 - (id === "ultra" ? p.ultraYearly : p.mainYearly));
   const current = profile?.plan;
   const renews = profile?.plan_ends_at && (current === "pro" || current === "ultra") ? new Date(profile.plan_ends_at) : null;
   const canPay = HAS_SUPABASE && Boolean(user) && p.paymentsEnabled;
 
   const plans: { id: PaidPlan; name: string; price: number; limit: number; extra: string[] }[] = [
-    { id: "pro", name: "Main", price: p.mainPrice, limit: p.mainLimit, extra: [] },
-    { id: "ultra", name: "Ultra", price: p.ultraPrice, limit: p.ultraLimit, extra: ["4 times the daily AI requests", "Made for families, agents and repeat applications"] },
+    { id: "pro", name: "Main", price: priceOf("pro"), limit: p.mainLimit, extra: [] },
+    { id: "ultra", name: "Ultra", price: priceOf("ultra"), limit: p.ultraLimit, extra: ["4 times the daily AI requests", "Made for families, agents and repeat applications"] },
   ];
 
   return (
@@ -75,14 +79,14 @@ export function UpgradeSheet() {
             onClick={async () => {
               setBusy(true);
               try {
-                await startCheckout(choice, phone, city);
+                await startCheckout(choice, phone, city, billing);
               } catch (e) {
                 toast(e instanceof Error ? e.message : "Couldn't open the payment page.", "warn");
                 setBusy(false);
               }
             }}
           >
-            {current === choice ? `You're on ${PLAN_NAME[choice]}` : busy ? "Opening PayHere…" : `Pay ${formatLkr(choice === "ultra" ? p.ultraPrice : p.mainPrice)} a month with PayHere`}
+            {current === choice ? `You're on ${PLAN_NAME[choice]}` : busy ? "Opening PayHere…" : `Pay ${formatLkr(priceOf(choice))} a ${yearly ? "year" : "month"} with PayHere`}
           </Button>
         ) : waitlisted ? (
           <p className="text-center text-subhead text-paper/70">You're on the list. We'll email you when payments open.</p>
@@ -111,6 +115,16 @@ export function UpgradeSheet() {
             {renews ? ` · renews ${renews.toLocaleDateString("en-NZ", { day: "numeric", month: "short" })}` : ""}
           </p>
         )}
+        <SegmentedControl
+          label="Billing"
+          value={billing}
+          onChange={setBilling}
+          className="bg-paper/10"
+          options={[
+            { value: "month", label: "Monthly" },
+            { value: "year", label: `Yearly · save ${formatLkr(saving("pro"))}` },
+          ]}
+        />
         <div role="radiogroup" aria-label="Package" className="grid gap-3 sm:grid-cols-2">
           {plans.map((plan) => (
             <button
@@ -128,8 +142,9 @@ export function UpgradeSheet() {
               </span>
               <span className="type-display text-title2">
                 {formatLkr(plan.price)}
-                <span className="text-subhead font-normal text-paper/65"> /month</span>
+                <span className="text-subhead font-normal text-paper/65"> /{yearly ? "year" : "month"}</span>
               </span>
+              {yearly && <span className="text-footnote text-paper/70">≈ {formatLkr(Math.round(plan.price / 12))} a month · save {formatLkr(saving(plan.id))}</span>}
               <span className="text-footnote font-semibold text-gold">{plan.limit} AI requests a day</span>
               <ul className="flex flex-col gap-1.5 text-footnote text-paper/85">
                 {[...SHARED, ...plan.extra].map((f) => (
@@ -147,7 +162,7 @@ export function UpgradeSheet() {
             <TextField label="Mobile number" type="tel" autoComplete="tel" placeholder="+94 77 123 4567" value={phone} onChange={(e) => setPhone(e.target.value)} className="bg-paper/10 text-paper placeholder:text-paper/45" />
             <TextField label="City" autoComplete="address-level2" placeholder="Colombo" value={city} onChange={(e) => setCity(e.target.value)} className="bg-paper/10 text-paper placeholder:text-paper/45" />
             <p className="text-footnote text-paper/65 sm:col-span-2">
-              You'll pay on PayHere's secure page, so KiwiPath never sees your card. Monthly renewals need a Visa or Mastercard. Cancel any time by contacting us.
+              You'll pay on PayHere's secure page, so KiwiPath never sees your card. Automatic renewals (monthly or yearly) need a Visa or Mastercard. Cancel any time by contacting us.
             </p>
           </div>
         ) : (

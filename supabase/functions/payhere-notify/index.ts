@@ -1,6 +1,6 @@
 // PayHere server-to-server payment notification (notify_url).
 // Verifies the md5sig signature, records each charge once, and extends the
-// member's package by a month for every successful payment (first and renewals).
+// member's package by a month (or a year) for every successful payment (first and renewals).
 // Deploy with JWT verification off: PayHere doesn't send a Supabase token.
 import { crypto } from "jsr:@std/crypto@1";
 import { encodeHex } from "jsr:@std/encoding@1/hex";
@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
     return new Response("bad signature", { status: 400 });
   }
 
-  const { data: order } = await service.from("payments").select("id, user_id, plan, status, amount, currency").eq("provider", "payhere").eq("provider_ref", f("order_id")).maybeSingle();
+  const { data: order } = await service.from("payments").select("id, user_id, plan, billing, status, amount, currency").eq("provider", "payhere").eq("provider_ref", f("order_id")).maybeSingle();
   if (!order?.user_id) {
     await log(false, "unknown order");
     return new Response("unknown order", { status: 200 });
@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     const { data: profile } = await service.from("profiles").select("plan_ends_at").eq("id", order.user_id).single();
     const from = profile?.plan_ends_at && new Date(profile.plan_ends_at) > new Date() ? new Date(profile.plan_ends_at) : new Date();
     const until = new Date(from);
-    until.setMonth(until.getMonth() + 1);
+    until.setMonth(until.getMonth() + (order.billing === "year" ? 12 : 1));
     if (order.status === "pending") {
       await service.from("payments").update({ status: "paid", period_end: until.toISOString() }).eq("id", order.id);
     }
@@ -66,6 +66,7 @@ Deno.serve(async (req) => {
       provider_ref: `pay:${paymentId}`,
       kind: "subscription",
       plan,
+      billing: order.billing === "year" ? "year" : "month",
       amount: Number(f("payhere_amount")),
       currency: order.currency,
       status: "paid",

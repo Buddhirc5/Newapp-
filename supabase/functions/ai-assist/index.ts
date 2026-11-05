@@ -46,14 +46,36 @@ const SOP_SCHEMA = {
   properties: { draft: { type: "string" }, tips: { type: "array", items: { type: "string" } } },
 };
 
+const CHAT_SYSTEM = `You are KiwiPath's assistant for Sri Lankans moving to New Zealand to study, work, join family or settle in.
+You answer questions about NZ visas and pathways, studying, job hunting, money (NZD and LKR), English tests, documents, scams, and settling in.
+Rules:
+- Be accurate and honest. Never invent visa rules, fees, thresholds or processing times. If you aren't sure, or a number changes often, say so and point them to the official page.
+- Prefer official sources: immigration.govt.nz, nzqa.govt.nz, studywithnewzealand.govt.nz, careers.govt.nz, employment.govt.nz, tenancy.govt.nz, iaa.govt.nz (licensed advisers). Only include links you are confident exist; use the site's home page if unsure.
+- Use the member's saved journey (given below) to make the answer personal, but don't repeat it back.
+- Warn about scams when money, job offers or agents come up: genuine NZ employers never charge for jobs, and only licensed advisers or lawyers can give immigration advice.
+- This is general information, not immigration advice. For their specific case, suggest a licensed immigration adviser.
+- Plain, friendly NZ English. Short paragraphs or bullets. Under 220 words unless they ask for detail.
+- If the question isn't about moving to or living in New Zealand, politely steer back.`;
+
+const CHAT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["answer", "links", "follow_ups"],
+  properties: {
+    answer: { type: "string" },
+    links: { type: "array", items: { type: "object", additionalProperties: false, required: ["title", "url"], properties: { title: { type: "string" }, url: { type: "string" } } } },
+    follow_ups: { type: "array", items: { type: "string" } },
+  },
+};
+
 const clip = (v: unknown, n: number) => String(v ?? "").slice(0, n);
 
 Deno.serve(withCors(async (req) => {
   const m = await member(req);
   if (!m.ok) return m.res;
 
-  const body = (await req.json().catch(() => ({}))) as { kind?: string; cv?: Record<string, unknown>; sop?: Record<string, unknown>; target?: string };
-  if (!["cv", "sop", "journey"].includes(String(body.kind))) return json({ error: "Unknown request." }, 400);
+  const body = (await req.json().catch(() => ({}))) as { kind?: string; cv?: Record<string, unknown>; sop?: Record<string, unknown>; target?: string; messages?: { role?: string; text?: string }[] };
+  if (!["cv", "sop", "journey", "chat"].includes(String(body.kind))) return json({ error: "Unknown request." }, 400);
 
   // Hold one of today's uses for this request; it's refunded if anything fails.
   const reservation = await reserve(m.service, m.userId, String(body.kind)).catch(() => null);
@@ -115,6 +137,21 @@ Deno.serve(withCors(async (req) => {
       model = out.model;
       await m.service.from("journey_insights").insert({ user_id: m.userId, source: "on_demand", insight: out.data });
       return json({ result: out.data, model: out.model, remaining: m.quota.limit - m.quota.used - 1 });
+    }
+
+    if (body.kind === "chat") {
+      const history = (Array.isArray(body.messages) ? body.messages : []).slice(-10).filter((x) => clip(x?.text, 1).length);
+      const last = history[history.length - 1];
+      if (!last || last.role !== "user") return json({ error: "Ask a question first." }, 400);
+      const context = (await journeyContext(m.service, m.userId)) ?? "No saved journey yet.";
+      const transcript = history.map((x) => `${x.role === "user" ? "Member" : "KiwiPath"}: ${clip(x.text, 1500)}`).join("\n\n");
+      const out = await generate<{ answer: string; links: { title: string; url: string }[]; follow_ups: string[] }>(
+        { system: CHAT_SYSTEM, content: `Member's saved journey:\n${context}\n\nConversation so far:\n${transcript}\n\nReply to the member's last message.`, schema: CHAT_SCHEMA, maxTokens: 3000 },
+        (v) => typeof v.answer === "string" && v.answer.length > 10,
+      );
+      model = out.model;
+      const links = (out.data.links ?? []).filter((l) => /^https:\/\/[a-z0-9.-]+\.[a-z]{2,}(\/\S*)?$/i.test(l.url)).slice(0, 4);
+      return json({ result: { ...out.data, links, follow_ups: (out.data.follow_ups ?? []).slice(0, 3) }, model: out.model, remaining: m.quota.limit - m.quota.used - 1 });
     }
 
     return json({ error: "Unknown request." }, 400);

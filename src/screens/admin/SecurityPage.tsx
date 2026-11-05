@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { FileDown, ShieldCheck } from "lucide-react";
+import { Bug, FileDown, ShieldCheck, Trash2 } from "lucide-react";
+import { clearErrors, fetchErrors, type ClientError } from "@/lib/monitor";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Controls";
 import { toast } from "@/components/ui/Toast";
@@ -20,6 +21,7 @@ const CONTROLS: { title: string; detail: string }[] = [
   { title: "Browser protections", detail: "Content-Security-Policy, no framing, no MIME sniffing, and camera and microphone limited to KiwiPath." },
   { title: "Website allow-list", detail: "Backend functions only answer browsers on kiwipath.space (plus ALLOWED_ORIGINS)." },
   { title: "Uploads checked by content", detail: "Documents are checked by their real file type and size, stored privately, and deleted right after the AI check." },
+  { title: "Error monitoring", detail: "App crashes are reported with the screen and build, so problems are fixed before members report them. No personal content is sent." },
   { title: "Signed payments", detail: "PayHere notifications must carry a valid signature and the exact amount and currency of the order." },
 ];
 
@@ -43,13 +45,28 @@ export function SecurityPage() {
   const [audit, setAudit] = useState<AuditRow[] | null>(null);
   const [events, setEvents] = useState<PaymentEventRow[]>([]);
   const [table, setTable] = useState("all");
-  const [view, setView] = useState<"audit" | "payments">("audit");
+  const [view, setView] = useState<"audit" | "payments" | "errors">("audit");
+  const [errors, setErrors] = useState<ClientError[] | null>(null);
+  const loadErrors = () => fetchErrors().then(setErrors, () => setErrors([]));
   useEffect(() => {
+    void loadErrors();
     fetchAudit().then(setAudit, (e: Error) => (toast(e.message, "warn"), setAudit([])));
     fetchPaymentEvents().then(setEvents, () => undefined);
   }, []);
   const shown = useMemo(() => (audit ?? []).filter((a) => table === "all" || a.target_table === table), [audit, table]);
   const rejected = events.filter((e) => !e.accepted);
+  const errors24 = (errors ?? []).filter((e) => Date.now() - Date.parse(e.created_at) < 86_400_000).length;
+  const groups = useMemo(() => {
+    const m = new Map<string, { message: string; count: number; last: ClientError; users: Set<string>; pages: Set<string> }>();
+    for (const e of errors ?? []) {
+      const g = m.get(e.message) ?? { message: e.message, count: 0, last: e, users: new Set<string>(), pages: new Set<string>() };
+      g.count += 1;
+      if (e.user_id) g.users.add(e.user_id);
+      g.pages.add(e.url);
+      m.set(e.message, g);
+    }
+    return [...m.values()].sort((a, b) => b.count - a.count);
+  }, [errors]);
   const today = (audit ?? []).filter((a) => Date.now() - Date.parse(a.created_at) < 86_400_000).length;
 
   return (
@@ -57,7 +74,7 @@ export function SecurityPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi label="Controls on" value={`${CONTROLS.length} of ${CONTROLS.length}`} sub="always on, enforced by the server" tone="green" />
         <Kpi label="Admin actions" value={audit ? formatNumber(audit.length) : "…"} sub={`${today} in the last 24 hours`} />
-        <Kpi label="Payment notices" value={formatNumber(events.length)} sub="received from PayHere" tone="muted" />
+        <Kpi label="App errors" value={errors ? formatNumber(errors24) : "…"} sub={`last 24 hours · ${groups.length} kinds in 30 days`} tone={errors24 ? "pink" : "plain"} />
         <Kpi label="Rejected notices" value={formatNumber(rejected.length)} sub="bad signature or amount" tone={rejected.length ? "pink" : "plain"} />
       </div>
 
@@ -81,8 +98,8 @@ export function SecurityPage() {
 
         <Panel
           className="xl:col-span-3"
-          title={view === "audit" ? "Admin activity" : "Payment notifications"}
-          sub={view === "audit" ? "Who changed what, newest first." : "Every PayHere notification, accepted or rejected."}
+          title={view === "audit" ? "Admin activity" : view === "errors" ? "App errors" : "Payment notifications"}
+          sub={view === "audit" ? "Who changed what, newest first." : view === "errors" ? "Crashes reported by members' browsers, grouped. Kept for 30 days." : "Every PayHere notification, accepted or rejected."}
           actions={
             <Pills
               label="Log"
@@ -91,6 +108,7 @@ export function SecurityPage() {
               options={[
                 { value: "audit", label: "Admin activity" },
                 { value: "payments", label: "Payments" },
+                { value: "errors", label: "Errors" },
               ]}
             />
           }
@@ -150,6 +168,11 @@ export function SecurityPage() {
                 </ul>
               )}
             </>
+          ) : view === "errors" ? (
+            <ErrorList groups={groups} loading={!errors} onClear={async () => {
+              await clearErrors().catch((e: Error) => toast(e.message, "warn"));
+              void loadErrors();
+            }} />
           ) : events.length === 0 ? (
             <p className="py-6 text-center text-subhead text-label-2">No payment notifications yet.</p>
           ) : (
@@ -170,5 +193,48 @@ export function SecurityPage() {
         </Panel>
       </div>
     </div>
+  );
+}
+
+function ErrorList({ groups, loading, onClear }: { groups: { message: string; count: number; last: ClientError; users: Set<string>; pages: Set<string> }[]; loading: boolean; onClear: () => void }) {
+  const [open, setOpen] = useState<string | null>(null);
+  if (loading) return <Skeleton />;
+  if (!groups.length)
+    return (
+      <p className="flex flex-col items-center gap-2 py-8 text-center text-subhead text-label-2">
+        <Bug className="size-6" aria-hidden />
+        No app errors reported. Nice.
+      </p>
+    );
+  return (
+    <>
+      <div className="flex justify-end">
+        <Button size="sm" variant="tinted" icon={<Trash2 className="size-4" aria-hidden />} onClick={onClear}>
+          Clear all
+        </Button>
+      </div>
+      <ul className="flex max-h-[34rem] flex-col divide-y divide-sep overflow-auto">
+        {groups.map((g) => (
+          <li key={g.message} className="py-3">
+            <button type="button" className="flex w-full gap-3 text-left" aria-expanded={open === g.message} onClick={() => setOpen(open === g.message ? null : g.message)}>
+              <span className="h-fit shrink-0 rounded-md bg-coral-soft px-2 py-1 text-caption font-bold text-coral-ink tabular">×{g.count}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-callout font-semibold break-words">{g.message}</p>
+                <p className="mt-0.5 text-caption text-label-3">
+                  {g.users.size} member{g.users.size === 1 ? "" : "s"} · {[...g.pages].slice(0, 3).join(", ")} · build {g.last.release} · {relativeDay(g.last.created_at)}
+                </p>
+              </div>
+            </button>
+            {open === g.message && (
+              <pre className="mt-2 max-h-60 overflow-auto rounded-xl bg-fill p-3 font-mono text-caption whitespace-pre-wrap text-label-2">
+                {g.last.stack || "No stack trace"}
+                {"\n\n"}
+                {g.last.user_agent}
+              </pre>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

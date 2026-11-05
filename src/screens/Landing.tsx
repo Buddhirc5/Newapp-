@@ -220,6 +220,17 @@ export function Landing() {
             <p className="mt-2 text-subhead text-white/80">Free for your first month. Leave whenever you like.</p>
             <div className="mt-5">{signInButtons(true)}</div>
           </div>
+          <nav aria-label="Free guides" className="mx-auto mt-8 flex max-w-xl flex-wrap justify-center gap-2">
+            {[
+              { href: "/learn", label: "Free moving guides" },
+              { href: "/visa", label: "Visa paths compared" },
+              { href: "/cities", label: "Cost of living by city" },
+            ].map((l) => (
+              <a key={l.href} href={l.href} className="inline-flex min-h-11 items-center rounded-full bg-surface px-4 text-subhead font-semibold shadow-card">
+                {l.label}
+              </a>
+            ))}
+          </nav>
           <p className="mx-auto mt-6 max-w-xl text-center text-footnote text-label-2">
             KiwiPath shares general information, not immigration advice. Always confirm rules on immigration.govt.nz or with a licensed adviser.{" "}
             <a href="/privacy" className="underline underline-offset-2">

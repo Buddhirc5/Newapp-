@@ -1,3 +1,4 @@
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useEffect, useMemo, useState } from "react";
 import { Save } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -19,10 +20,12 @@ interface Field {
 const GROUPS: { title: string; sub: string; fields: Field[] }[] = [
   {
     title: "Packages and prices",
-    sub: "What members pay each month. Changes apply to new checkouts.",
+    sub: "What members pay monthly or yearly. Changes apply to new checkouts.",
     fields: [
       { key: "main_price_lkr", label: "Main package", help: "Monthly price in rupees", unit: "Rs", min: 300, max: 50000 },
       { key: "ultra_price_lkr", label: "Ultra package", help: "Monthly price in rupees", unit: "Rs", min: 300, max: 50000 },
+      { key: "main_yearly_price_lkr", label: "Main, yearly", help: "Yearly price in rupees", unit: "Rs", min: 3000, max: 500000 },
+      { key: "ultra_yearly_price_lkr", label: "Ultra, yearly", help: "Yearly price in rupees", unit: "Rs", min: 3000, max: 500000 },
       { key: "trial_days", label: "Free month length", help: "Days of full access for new members", unit: "days", min: 0, max: 90 },
       { key: "platform_fee_percent", label: "Expert session fee", help: "Share of paid sessions KiwiPath keeps", unit: "%", min: 0, max: 50 },
     ],
@@ -40,7 +43,7 @@ const GROUPS: { title: string; sub: string; fields: Field[] }[] = [
   },
   {
     title: "Payments",
-    sub: "PayHere monthly subscriptions.",
+    sub: "PayHere monthly and yearly subscriptions.",
     fields: [{ key: "payments_enabled", label: "Online payments", help: "Shows PayHere checkout. Needs the PAYHERE_MERCHANT_ID and PAYHERE_MERCHANT_SECRET secrets." }],
   },
 ];
@@ -102,6 +105,10 @@ export function SettingsPage() {
           </Button>
         </div>
       </div>
+
+      <Panel title="Appearance" sub="Light, dark, or match this device. Saved for your account.">
+        <ThemeToggle />
+      </Panel>
 
       <div className="grid gap-5 lg:grid-cols-3">
         {GROUPS.map((g) => (

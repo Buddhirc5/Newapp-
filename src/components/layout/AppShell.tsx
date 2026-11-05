@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/sync";
 import { useMember } from "@/lib/community";
 import { Mascot } from "../Mascot";
 import { SampleBanner } from "../SampleBanner";
+import { TrialBanner } from "../TrialBanner";
 import { ThemeToggle } from "../ThemeToggle";
 
 interface Tab {
@@ -68,6 +69,7 @@ export function AppShell() {
       <Sidebar />
       <main id="main" className="relative z-10">
         <SampleBanner />
+        <TrialBanner />
         <motion.div
           key={location.pathname}
           initial={reduce ? false : { opacity: 0, y: 8 }}

@@ -21,6 +21,20 @@ import type {
   ThemePref,
 } from "@/types";
 
+export interface DocDates {
+  issued?: string;
+  expires?: string;
+  note?: string;
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  text: string;
+  links?: { title: string; url: string }[];
+  followUps?: string[];
+  at: string;
+}
+
 export const STORE_KEY = "kiwipath-v1";
 
 export interface FinderSnapshot {
@@ -46,6 +60,12 @@ export interface AppData {
   cvChecked: boolean;
   shortlist: Course[];
   docs: Record<string, DocStatus>;
+  /** Issue and expiry dates (YYYY-MM-DD) for the visa document tracker. */
+  docDates: Record<string, DocDates>;
+  /** Target arrival month (YYYY-MM) for the personal timeline. */
+  targetMonth: string | null;
+  /** The last few AI assistant messages, kept so a chat survives a reload. */
+  chat: ChatMessage[];
   bookings: Booking[];
   reports: ScamReport[];
   waitlist: { pro: boolean; mentor: boolean };
@@ -86,6 +106,9 @@ export function freshData(): AppData {
     cvChecked: false,
     shortlist: [],
     docs: {},
+    docDates: {},
+    targetMonth: null,
+    chat: [],
     bookings: [],
     reports: [],
     waitlist: { pro: false, mentor: false },
@@ -202,6 +225,9 @@ interface Actions {
   upsertCourse: (course: Course) => void;
   removeCourse: (id: string) => void;
   setDoc: (id: string, status: DocStatus) => void;
+  setDocDates: (id: string, patch: DocDates) => void;
+  setTargetMonth: (month: string | null) => void;
+  setChat: (chat: ChatMessage[]) => void;
   addBooking: (booking: Omit<Booking, "id" | "createdAt" | "status">) => Booking;
   cancelBooking: (id: string) => void;
   addReport: (report: Omit<ScamReport, "id" | "createdAt" | "status">) => void;
@@ -327,6 +353,12 @@ export const useApp = create<AppState>()(
       removeCourse: (id) => set((s) => ({ shortlist: s.shortlist.filter((c) => c.id !== id), ...stamp() })),
 
       setDoc: (id, status) => set((s) => ({ docs: { ...s.docs, [id]: status }, ...stamp() })),
+
+      setDocDates: (id, patch) => set((s) => ({ docDates: { ...s.docDates, [id]: { ...s.docDates[id], ...patch } }, ...stamp() })),
+
+      setTargetMonth: (targetMonth) => set({ targetMonth, ...stamp() }),
+
+      setChat: (chat) => set({ chat: chat.slice(-30), ...stamp() }),
 
       addBooking: (booking) => {
         const created: Booking = { ...booking, id: uid("book"), createdAt: new Date().toISOString(), status: "requested" };

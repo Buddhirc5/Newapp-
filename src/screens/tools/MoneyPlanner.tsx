@@ -258,7 +258,7 @@ function LineRow({ line, rate, onAmount, onReset, onInclude }: { line: MoneyLine
           <Switch checked={line.included} onChange={onInclude} label={`Include ${line.label}`} />
         </div>
         <div className={cn("flex items-center gap-3", !line.included && "opacity-50")}>
-          <label className="flex min-h-11 flex-1 items-center gap-2 rounded-[0.8rem] bg-fill px-3 focus-within:ring-2 focus-within:ring-teal-ink/60">
+          <label className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-[0.8rem] bg-fill px-3 focus-within:ring-2 focus-within:ring-teal-ink/60">
             <span className="text-subhead font-semibold text-label-2">{line.currency === "NZD" ? "NZ$" : "Rs"}</span>
             <input
               inputMode="numeric"
@@ -275,7 +275,7 @@ function LineRow({ line, rate, onAmount, onReset, onInclude }: { line: MoneyLine
               disabled={!line.included}
             />
           </label>
-          <span className="w-28 shrink-0 text-right text-footnote text-label-2 tabular">≈ {other}</span>
+          <span className="max-w-[45%] shrink-0 text-right text-footnote text-label-2 tabular">≈ {other}</span>
           {line.edited && (
             <button type="button" onClick={onReset} className="grid size-11 shrink-0 place-items-center rounded-full hover:bg-fill" aria-label={`Reset ${line.label} to the estimate`}>
               <RotateCcw className="size-4 text-label-2" aria-hidden />

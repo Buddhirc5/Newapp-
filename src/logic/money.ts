@@ -25,7 +25,7 @@ const CHILDREN = { single: 0, couple: 0, family: 2 } as const;
 export function defaultItems(plan: MoneyPlan): MoneyItem[] {
   const adults = ADULTS[plan.household];
   const children = CHILDREN[plan.household];
-  const rent = CITY_BY_ID[plan.city].rent[plan.housing];
+  const rent = (CITY_BY_ID[plan.city] ?? CITY_BY_ID.undecided).rent[plan.housing];
   const isStudent = plan.path === "student";
 
   const items: MoneyItem[] = [
@@ -77,7 +77,7 @@ export function defaultItems(plan: MoneyPlan): MoneyItem[] {
     },
     {
       id: "flights",
-      label: `Flights Colombo → ${CITY_BY_ID[plan.city].name}`,
+      label: `Flights Colombo → ${plan.city === "undecided" ? "New Zealand" : (CITY_BY_ID[plan.city]?.name ?? "New Zealand")}`,
       group: "before",
       currency: "NZD",
       amount: 1300 * adults + 1000 * children,

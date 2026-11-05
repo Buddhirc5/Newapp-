@@ -36,7 +36,7 @@ export const CATEGORY_BY_ID = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]
 
 export const UNIT_LABEL: Record<PriceUnit, string> = { week: "/week", month: "/month", once: "", free: "Free", hour: "/hour" };
 
-export const NZ_CITIES = ["Auckland", "Wellington", "Christchurch", "Hamilton", "Tauranga", "Dunedin", "Palmerston North", "Nelson", "Napier", "Other"];
+export const NZ_CITIES = ["Auckland", "Wellington", "Christchurch", "Hamilton", "Tauranga", "Dunedin", "Palmerston North", "Nelson", "Napier & Hastings", "New Plymouth", "Rotorua", "Queenstown", "Whangārei", "Invercargill", "Other"];
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
 

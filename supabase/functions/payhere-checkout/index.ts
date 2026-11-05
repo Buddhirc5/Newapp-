@@ -1,4 +1,4 @@
-// Starts a PayHere monthly subscription for the Main or Ultra package.
+// Starts a PayHere monthly or yearly subscription for the Main or Ultra package.
 // Returns the form fields the browser posts to PayHere's hosted checkout, so
 // card details never touch KiwiPath. Needs the PAYHERE_MERCHANT_ID and
 // PAYHERE_MERCHANT_SECRET secrets (PAYHERE_SANDBOX=true while testing) and the
@@ -23,26 +23,29 @@ Deno.serve(withCors(async (req) => {
 
   const merchantId = Deno.env.get("PAYHERE_MERCHANT_ID");
   const secret = Deno.env.get("PAYHERE_MERCHANT_SECRET");
-  const { data: settings } = await service.from("app_settings").select("key, value").in("key", ["payments_enabled", "main_price_lkr", "ultra_price_lkr"]);
+  const { data: settings } = await service.from("app_settings").select("key, value").in("key", ["payments_enabled", "main_price_lkr", "ultra_price_lkr", "main_yearly_price_lkr", "ultra_yearly_price_lkr"]);
   const setting = (k: string) => settings?.find((s) => s.key === k)?.value;
   if (setting("payments_enabled") !== true || !merchantId || !secret) return json({ error: "Online payments aren't switched on yet." }, 503);
 
-  const body = (await req.json().catch(() => ({}))) as { plan?: string; phone?: string; city?: string; returnUrl?: string };
+  const body = (await req.json().catch(() => ({}))) as { plan?: string; billing?: string; phone?: string; city?: string; returnUrl?: string };
+  const yearly = body.billing === "year";
   const plan = body.plan === "ultra" ? "ultra" : body.plan === "pro" ? "pro" : null;
   if (!plan) return json({ error: "Choose a package." }, 400);
   const phone = String(body.phone ?? "").replace(/[^\d+]/g, "");
   if (phone.length < 9) return json({ error: "Add your mobile number. PayHere needs it for the receipt." }, 400);
 
-  const price = Number(setting(plan === "ultra" ? "ultra_price_lkr" : "main_price_lkr") ?? (plan === "ultra" ? 5990 : 1990));
+  const key = `${plan === "ultra" ? "ultra" : "main"}${yearly ? "_yearly" : ""}_price_lkr`;
+  const fallback = { main_price_lkr: 1990, ultra_price_lkr: 5990, main_yearly_price_lkr: 19900, ultra_yearly_price_lkr: 59900 }[key]!;
+  const price = Number(setting(key) ?? fallback);
   // The database already limits prices; this is a second guard before charging anyone.
-  if (!Number.isFinite(price) || price < 300 || price > 50000) return json({ error: "This package isn't available right now." }, 503);
+  if (!Number.isFinite(price) || price < 300 || price > (yearly ? 500000 : 50000)) return json({ error: "This package isn't available right now." }, 503);
   const amount = price.toFixed(2);
   const { data: profile } = await service.from("profiles").select("display_name, city").eq("id", auth.user.id).single();
   const [first, ...rest] = String(profile?.display_name || "KiwiPath member").trim().split(/\s+/);
 
   const { data: order, error } = await service
     .from("payments")
-    .insert({ user_id: auth.user.id, provider: "payhere", kind: "subscription", plan, amount: price, currency: "LKR", status: "pending" })
+    .insert({ user_id: auth.user.id, provider: "payhere", kind: "subscription", plan, billing: yearly ? "year" : "month", amount: price, currency: "LKR", status: "pending" })
     .select("id")
     .single();
   if (error || !order) return json({ error: "Couldn't start the payment. Try again." }, 500);
@@ -62,10 +65,10 @@ Deno.serve(withCors(async (req) => {
       cancel_url: `${site}/me?payment=cancelled`,
       notify_url: `${url}/functions/v1/payhere-notify`,
       order_id: order.id,
-      items: plan === "ultra" ? "KiwiPath Ultra (monthly)" : "KiwiPath Main (monthly)",
+      items: `KiwiPath ${plan === "ultra" ? "Ultra" : "Main"} (${yearly ? "yearly" : "monthly"})`,
       currency: "LKR",
       amount,
-      recurrence: "1 Month",
+      recurrence: yearly ? "1 Year" : "1 Month",
       duration: "Forever",
       first_name: first,
       last_name: rest.join(" ") || "-",

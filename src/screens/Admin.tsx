@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Page } from "@/components/layout/Page";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Mascot } from "@/components/Mascot";
 import { AiUsage } from "@/screens/admin/AiUsage";
 import { Pills } from "@/screens/admin/charts";
@@ -381,7 +382,7 @@ function Console() {
   return (
     <div className="min-h-dvh bg-bg pb-16">
       <header className="sticky top-0 z-30 px-3 pt-3 sm:px-5">
-        <div className="mx-auto flex max-w-[1500px] items-center gap-2 rounded-[1.6rem] bg-ink p-2 text-paper shadow-float dark:bg-night-2">
+        <div className="mx-auto flex max-w-[1500px] items-center gap-2 rounded-[1.6rem] bg-surface p-2 text-label shadow-float ring-1 ring-sep dark:bg-night-2">
           <Link to="/" className="flex shrink-0 items-center gap-2 rounded-full py-1 pr-3 pl-2" aria-label="KiwiPath home">
             <Mascot className="size-8" pose="stand" animate={false} />
             <span className="type-display hidden text-headline tracking-tight sm:inline">KIWIPATH</span>
@@ -395,7 +396,7 @@ function Console() {
                 aria-current={tab === t.id ? "page" : undefined}
                 className={cn(
                   "inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-footnote font-bold transition-colors",
-                  tab === t.id ? "bg-paper text-ink" : "text-paper/80 hover:bg-paper/10 hover:text-paper",
+                  tab === t.id ? "bg-night text-paper dark:bg-paper dark:text-ink" : "text-label-2 hover:bg-fill hover:text-label",
                 )}
               >
                 <t.icon className="size-4 lg:hidden" aria-hidden />
@@ -403,7 +404,7 @@ function Console() {
               </button>
             ))}
           </nav>
-          <span className="hidden items-center gap-1.5 px-2 text-caption text-paper/70 xl:inline-flex">
+          <span className="hidden items-center gap-1.5 px-2 text-caption text-label-2 xl:inline-flex">
             <span className="size-1.5 rounded-full bg-green" aria-hidden />
             {user?.email ?? "admin"}
           </span>
@@ -412,14 +413,15 @@ function Console() {
             aria-label={full ? "Exit full screen" : "Full screen"}
             title={full ? "Exit full screen" : "Full screen"}
             onClick={() => (full ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => undefined)}
-            className="hidden size-10 shrink-0 place-items-center rounded-full bg-paper/10 hover:bg-paper/20 md:grid"
+            className="hidden size-10 shrink-0 place-items-center rounded-full bg-fill hover:bg-fill-2 md:grid"
           >
             {full ? <Minimize2 className="size-4" aria-hidden /> : <Maximize2 className="size-4" aria-hidden />}
           </button>
-          <Link to="/" className="hidden min-h-10 shrink-0 items-center rounded-full bg-paper px-4 text-footnote font-bold text-ink md:inline-flex">
+          <ThemeToggle className="hidden shrink-0 sm:inline-flex" />
+          <Link to="/" className="hidden min-h-10 shrink-0 items-center rounded-full bg-night px-4 text-footnote font-bold text-paper md:inline-flex dark:bg-paper dark:text-ink">
             Member view
           </Link>
-          <button type="button" aria-label="Sign out" title="Sign out" onClick={() => void signOut()} className="grid size-10 shrink-0 place-items-center rounded-full bg-paper/10 hover:bg-paper/20">
+          <button type="button" aria-label="Sign out" title="Sign out" onClick={() => void signOut()} className="grid size-10 shrink-0 place-items-center rounded-full bg-fill hover:bg-fill-2">
             <LogOut className="size-4" aria-hidden />
           </button>
         </div>

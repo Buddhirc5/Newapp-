@@ -4,6 +4,7 @@ import { MotionConfig } from "motion/react";
 import { AppShell } from "@/components/layout/AppShell";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import { Toaster } from "@/components/ui/Toast";
+import { RouteError } from "@/components/RouteError";
 import { HAS_SUPABASE, IS_PREVIEW } from "@/lib/env";
 import { loadRemoteContent } from "@/lib/content";
 import { loadMember, useMember } from "@/lib/community";
@@ -30,7 +31,7 @@ function WelcomeGate() {
   return <Welcome />;
 }
 
-const routes: RouteObject[] = [
+const pages: RouteObject[] = [
   { path: "/welcome", element: <WelcomeGate /> },
   { path: "/landing", lazy: async () => ({ Component: (await import("@/screens/Landing")).Landing }) },
   // Outside the app shell, so visitors who haven't started can read it from the landing page.
@@ -70,12 +71,19 @@ const routes: RouteObject[] = [
       { path: "experts", lazy: async () => ({ Component: (await import("@/screens/Experts")).Experts }) },
       { path: "experts/manage", lazy: async () => ({ Component: (await import("@/screens/Experts")).ManageExperts }) },
       { path: "experts/:id", lazy: async () => ({ Component: (await import("@/screens/Experts")).ExpertDetail }) },
+      { path: "tools/cost-of-living", lazy: async () => ({ Component: (await import("@/screens/tools/CostOfLiving")).CostOfLiving }) },
+      { path: "tools/timeline", lazy: async () => ({ Component: (await import("@/screens/tools/Timeline")).Timeline }) },
+      { path: "tools/jobs", lazy: async () => ({ Component: (await import("@/screens/tools/Jobs")).Jobs }) },
+      { path: "assistant", lazy: async () => ({ Component: (await import("@/screens/tools/Assistant")).Assistant }) },
       { path: "tools/doc-check", lazy: async () => ({ Component: (await import("@/screens/tools/DocCheck")).DocCheck }) },
       { path: "me", lazy: async () => ({ Component: (await import("@/screens/Me")).Me }) },
       { path: "*", element: <NotFound /> },
     ],
   },
 ];
+
+// Every screen reports crashes to the admin error log and shows a friendly page.
+const routes: RouteObject[] = [{ errorElement: <RouteError />, children: pages }];
 
 // The embedded preview can't change the page URL, so it routes in memory.
 const router = IS_PREVIEW ? createMemoryRouter(routes, { initialEntries: [initialPreviewPath()] }) : createBrowserRouter(routes);

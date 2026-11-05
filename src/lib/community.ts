@@ -791,6 +791,8 @@ export async function aiQuota(): Promise<AiQuota> {
 export interface Packages {
   mainPrice: number;
   ultraPrice: number;
+  mainYearly: number;
+  ultraYearly: number;
   mainLimit: number;
   ultraLimit: number;
   paymentsEnabled: boolean;
@@ -801,11 +803,13 @@ export async function fetchPackages(): Promise<Packages> {
   const { data } = await sb
     .from("app_settings")
     .select("key, value")
-    .in("key", ["main_price_lkr", "ultra_price_lkr", "ai_daily_limit_pro", "ai_daily_limit_ultra", "payments_enabled"]);
+    .in("key", ["main_price_lkr", "ultra_price_lkr", "main_yearly_price_lkr", "ultra_yearly_price_lkr", "ai_daily_limit_pro", "ai_daily_limit_ultra", "payments_enabled"]);
   const get = (k: string, d: number) => Number(data?.find((r) => r.key === k)?.value ?? d);
   return {
     mainPrice: get("main_price_lkr", 1990),
     ultraPrice: get("ultra_price_lkr", 5990),
+    mainYearly: get("main_yearly_price_lkr", 19900),
+    ultraYearly: get("ultra_yearly_price_lkr", 59900),
     mainLimit: get("ai_daily_limit_pro", 15),
     ultraLimit: get("ai_daily_limit_ultra", 60),
     paymentsEnabled: data?.find((r) => r.key === "payments_enabled")?.value === true,
@@ -851,6 +855,29 @@ export const polishCv = (cv: unknown, target: string) => invoke<{ result: CvPoli
 export const writeSop = (sop: unknown) => invoke<{ result: { draft: string; tips: string[] }; remaining: number }>("ai-assist", { kind: "sop", sop });
 export const reviewJourney = () => invoke<{ result: JourneyInsight; remaining: number }>("ai-assist", { kind: "journey" });
 
+export interface ChatReply {
+  answer: string;
+  links: { title: string; url: string }[];
+  follow_ups: string[];
+}
+export const askAssistant = (messages: { role: "user" | "assistant"; text: string }[]) => invoke<{ result: ChatReply; remaining: number }>("ai-assist", { kind: "chat", messages });
+
+export interface Job {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  summary: string;
+  url: string;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  contract: string;
+  created: string;
+  sponsor: boolean;
+}
+export const fetchJobs = (what: string, where: string, sponsor: boolean, page = 1) =>
+  invoke<{ configured: boolean; jobs: Job[]; total?: number; error?: string }>("fetch-jobs", { what, where, sponsor, page });
+
 export async function latestInsight(): Promise<{ insight: JourneyInsight; created_at: string; source: string } | null> {
   const sb = await client();
   const user = requireUser();
@@ -859,8 +886,8 @@ export async function latestInsight(): Promise<{ insight: JourneyInsight; create
 }
 
 /** Starts a PayHere checkout: posts the signed fields to PayHere's hosted payment page. */
-export async function startCheckout(plan: PaidPlan, phone: string, city: string): Promise<void> {
-  const res = await invoke<{ action: string; fields: Record<string, string> }>("payhere-checkout", { plan, phone, city, returnUrl: window.location.href });
+export async function startCheckout(plan: PaidPlan, phone: string, city: string, billing: "month" | "year" = "month"): Promise<void> {
+  const res = await invoke<{ action: string; fields: Record<string, string> }>("payhere-checkout", { plan, billing, phone, city, returnUrl: window.location.href });
   const form = document.createElement("form");
   form.method = "POST";
   form.action = res.action;

@@ -4,7 +4,22 @@ export type ExperienceBand = "0-1" | "2-3" | "4-5" | "6+";
 export type EnglishStatus = "not-started" | "preparing" | "booked" | "below" | "ready";
 export type Household = "single" | "couple" | "family";
 export type Timeline = "6m" | "12m" | "24m" | "exploring";
-export type CityId = "auckland" | "wellington" | "christchurch" | "hamilton" | "dunedin";
+export type CityId =
+  | "undecided"
+  | "auckland"
+  | "wellington"
+  | "christchurch"
+  | "hamilton"
+  | "tauranga"
+  | "dunedin"
+  | "palmerston-north"
+  | "nelson"
+  | "napier-hastings"
+  | "new-plymouth"
+  | "rotorua"
+  | "queenstown"
+  | "whangarei"
+  | "invercargill";
 export type PathId = "student" | "worker" | "registered" | "family" | "business";
 export type Tint = "gold" | "teal" | "malibu" | "lavender" | "pink" | "coral" | "green";
 export type ThemePref = "system" | "light" | "dark";

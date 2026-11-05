@@ -10,6 +10,7 @@ import { downloadReceipt, PLAN_ITEM, receiptNumber } from "@/lib/receiptPdf";
 import { downloadCsv, fetchPayments, isCharge, PLAN_LABEL, type Payment } from "./api";
 import { Insight, Kpi, LineChart, Panel, Pills, SegmentBar, toWeekly, type Row, type Series } from "./charts";
 import { RangeBar, Skeleton, useAnalytics, type Range } from "./Dashboard";
+import { Forecast } from "./Forecast";
 
 const MONEY: Series[] = [{ key: "revenue", label: "Revenue (Rs)", slot: 1 }];
 const STATUS_TONE: Record<string, string> = {
@@ -166,6 +167,7 @@ export function Revenue() {
             <Skeleton />
           )}
         </Panel>
+        {k && data && <Forecast k={k} days={data.days} />}
       </div>
 
       <Panel title="Payments and receipts" sub={`${shown.length} shown. Download a PDF receipt for any charge.`}>

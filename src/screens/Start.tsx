@@ -14,6 +14,7 @@ import { tick } from "@/lib/haptics";
 import { useAuth } from "@/lib/sync";
 import { useApp } from "@/store/app";
 import type { CityId, PathId } from "@/types";
+import { CITIES } from "@/data/places";
 
 type Situation = MemberProfile["situation"];
 type Stage = MemberProfile["stage"];
@@ -28,13 +29,7 @@ const INTERESTS = [
   { id: "events", label: "Meetups & events" },
 ];
 
-const CITY_OPTIONS: { id: CityId; label: string }[] = [
-  { id: "auckland", label: "Auckland" },
-  { id: "wellington", label: "Wellington" },
-  { id: "christchurch", label: "Christchurch" },
-  { id: "hamilton", label: "Hamilton" },
-  { id: "dunedin", label: "Dunedin" },
-];
+const CITY_OPTIONS: { id: CityId; label: string; hint: string }[] = CITIES.map((c) => ({ id: c.id, label: c.name, hint: c.id === "undecided" ? "Compare cities later in Tools" : c.region }));
 
 const PATH_GROUP: Record<PathId, string | null> = {
   student: "masters-students",
@@ -99,7 +94,7 @@ export function Start() {
         situation,
         path,
         stage: finalStage,
-        city: CITY_OPTIONS.find((c) => c.id === city)?.label ?? "",
+        city: city === "undecided" ? "" : (CITY_OPTIONS.find((c) => c.id === city)?.label ?? ""),
         country: inNz ? "nz" : "lk",
         role: inNz ? (finalStage === "settled" ? "helper" : "newcomer") : "planner",
         interests,
@@ -199,7 +194,7 @@ export function Start() {
                     ]}
                   />
                 )}
-                {current === "city" && <Choices value={city} onPick={(v) => pick(setCity, v)} options={CITY_OPTIONS.map((c) => ({ value: c.id, label: c.label }))} />}
+                {current === "city" && <Choices value={city} onPick={(v) => pick(setCity, v)} options={CITY_OPTIONS.filter((c) => !(inNz && c.id === "undecided")).map((c) => ({ value: c.id, label: c.label, hint: c.hint }))} />}
                 {current === "interests" && (
                   <div className="flex flex-1 flex-col gap-4">
                     <div className="flex flex-wrap gap-2.5">
@@ -249,7 +244,7 @@ export function Start() {
 function Choices<T extends string>({ value, onPick, options }: { value: T; onPick: (v: T) => void; options: { value: T; label: string; hint?: string }[] }) {
   return (
     <div className="rounded-[2rem] bg-gold p-3" role="radiogroup">
-      <div className="flex flex-col gap-2.5">
+      <div className={cn("grid gap-2.5", options.length > 6 && "sm:grid-cols-2")}>
         {options.map((o, i) => {
           const selected = o.value === value;
           return (
@@ -262,7 +257,7 @@ function Choices<T extends string>({ value, onPick, options }: { value: T; onPic
               className={cn("flex min-h-14 items-center gap-3 rounded-full py-2 pr-4 pl-2 text-left", selected ? "bg-teal-ink text-white" : "bg-white text-ink hover:bg-white/85")}
             >
               <span className={cn("grid size-10 shrink-0 place-items-center rounded-full text-subhead font-bold", selected ? "bg-white/20" : "bg-[#dcf5de] text-[#00765f]")} aria-hidden>
-                {selected ? <Check className="size-5" strokeWidth={3} /> : "ABCDE"[i]}
+                {selected ? <Check className="size-5" strokeWidth={3} /> : String.fromCharCode(65 + i)}
               </span>
               <span>
                 <span className="block text-callout font-semibold">{o.label}</span>

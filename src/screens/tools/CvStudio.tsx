@@ -318,7 +318,7 @@ function useAccountDetails(): Partial<CvDraft> {
     if (user?.phone) out.phone = user.phone.startsWith("+") ? user.phone : `+${user.phone}`;
     const occupation = OCCUPATIONS.find((o) => o.id === profile.occupationId)?.title ?? profile.occupationOther;
     if (occupation && !isSample) out.headline = occupation;
-    const nzCity = CITY_BY_ID[profile.city]?.name;
+    const nzCity = profile.city === "undecided" ? "New Zealand" : CITY_BY_ID[profile.city]?.name;
     if (member?.situation === "in_nz") out.location = member.city ? `${member.city}, New Zealand` : "New Zealand";
     else if (member || !isSample) out.location = nzCity ? `Sri Lanka (relocating to ${nzCity})` : "Sri Lanka";
     if (member?.bio && member.bio.length > 40) out.summary = member.bio;
