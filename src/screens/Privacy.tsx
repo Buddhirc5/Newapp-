@@ -52,7 +52,7 @@ const SECTIONS: { title: string; points: string[] }[] = [
       "Export a copy of your data any time from Me → Your data.",
       "Delete your account from Me → Account. Everything you've posted and saved is removed. Payment receipts are kept without your name because the law requires businesses to keep financial records.",
       "We keep your data while your account is open. Backups are cleared within 30 days of deleting your account.",
-      "Ask a question, correct your details or make a privacy request by emailing buddhirc5@gmail.com. We aim to reply within 7 days.",
+      "Ask a question, correct your details or make a privacy request by emailing kiwipathspace@gmail.com. We aim to reply within 7 days.",
     ],
   },
 ];
