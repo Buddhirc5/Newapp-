@@ -855,12 +855,20 @@ export const polishCv = (cv: unknown, target: string) => invoke<{ result: CvPoli
 export const writeSop = (sop: unknown) => invoke<{ result: { draft: string; tips: string[] }; remaining: number }>("ai-assist", { kind: "sop", sop });
 export const reviewJourney = () => invoke<{ result: JourneyInsight; remaining: number }>("ai-assist", { kind: "journey" });
 
+export interface AssistantAction {
+  type: "set_target_month" | "set_city" | "set_path" | "set_doc_status" | "set_doc_date" | "complete_task" | "open";
+  target: string;
+  value: string;
+  label: string;
+}
 export interface ChatReply {
   answer: string;
   links: { title: string; url: string }[];
   follow_ups: string[];
+  actions?: AssistantAction[];
 }
-export const askAssistant = (messages: { role: "user" | "assistant"; text: string }[]) => invoke<{ result: ChatReply; remaining: number }>("ai-assist", { kind: "chat", messages });
+export const askAssistant = (messages: { role: "user" | "assistant"; text: string }[], app: Record<string, string>) =>
+  invoke<{ result: ChatReply; remaining: number }>("ai-assist", { kind: "chat", messages, app });
 
 export interface Job {
   id: string;

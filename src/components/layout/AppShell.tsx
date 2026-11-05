@@ -13,6 +13,7 @@ import { useMember } from "@/lib/community";
 import { Mascot } from "../Mascot";
 import { SampleBanner } from "../SampleBanner";
 import { TrialBanner } from "../TrialBanner";
+import { AskFab } from "../assistant/AskFab";
 import { ThemeToggle } from "../ThemeToggle";
 
 interface Tab {
@@ -79,6 +80,7 @@ export function AppShell() {
           <Outlet />
         </motion.div>
       </main>
+      <AskFab />
       <TabBar />
     </div>
   );

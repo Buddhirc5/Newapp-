@@ -55,14 +55,38 @@ Rules:
 - Warn about scams when money, job offers or agents come up: genuine NZ employers never charge for jobs, and only licensed advisers or lawyers can give immigration advice.
 - This is general information, not immigration advice. For their specific case, suggest a licensed immigration adviser.
 - Plain, friendly NZ English. Short paragraphs or bullets. Under 220 words unless they ask for detail.
-- If the question isn't about moving to or living in New Zealand, politely steer back.`;
+- If the question isn't about moving to or living in New Zealand, politely steer back.
+
+You can also set things up in the member's KiwiPath app. When it would genuinely help (or they ask), propose up to 3 actions. The member taps "Apply" to confirm, so describe them in the answer as suggestions. Only use IDs listed in "App options" below. Action types:
+- set_target_month: target = arrival month "YYYY-MM" (for their dated timeline)
+- set_city: target = a city id
+- set_path: target = a path id (student, worker, registered, family, business)
+- set_doc_status: target = a document id, value = todo | doing | done
+- set_doc_date: target = a document id, value = "issued=YYYY-MM-DD" or "expires=YYYY-MM-DD"
+- complete_task: target = a task id from the list (only if they say they've done it)
+- open: target = one of the app paths listed
+Each action needs a short button label, e.g. "Set arrival to March 2027". Use no actions when none fit.`;
 
 const CHAT_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["answer", "links", "follow_ups"],
+  required: ["answer", "links", "follow_ups", "actions"],
   properties: {
     answer: { type: "string" },
+    actions: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["type", "target", "value", "label"],
+        properties: {
+          type: { type: "string", enum: ["set_target_month", "set_city", "set_path", "set_doc_status", "set_doc_date", "complete_task", "open"] },
+          target: { type: "string" },
+          value: { type: "string" },
+          label: { type: "string" },
+        },
+      },
+    },
     links: { type: "array", items: { type: "object", additionalProperties: false, required: ["title", "url"], properties: { title: { type: "string" }, url: { type: "string" } } } },
     follow_ups: { type: "array", items: { type: "string" } },
   },
@@ -74,7 +98,7 @@ Deno.serve(withCors(async (req) => {
   const m = await member(req);
   if (!m.ok) return m.res;
 
-  const body = (await req.json().catch(() => ({}))) as { kind?: string; cv?: Record<string, unknown>; sop?: Record<string, unknown>; target?: string; messages?: { role?: string; text?: string }[] };
+  const body = (await req.json().catch(() => ({}))) as { kind?: string; cv?: Record<string, unknown>; sop?: Record<string, unknown>; target?: string; messages?: { role?: string; text?: string }[]; app?: Record<string, unknown> };
   if (!["cv", "sop", "journey", "chat"].includes(String(body.kind))) return json({ error: "Unknown request." }, 400);
 
   // Hold one of today's uses for this request; it's refunded if anything fails.
@@ -144,14 +168,24 @@ Deno.serve(withCors(async (req) => {
       const last = history[history.length - 1];
       if (!last || last.role !== "user") return json({ error: "Ask a question first." }, 400);
       const context = (await journeyContext(m.service, m.userId)) ?? "No saved journey yet.";
+      const app = body.app ?? {};
+      const options = [
+        `Today: ${new Date().toISOString().slice(0, 10)}`,
+        `Current path: ${clip(app.path, 20)}; city: ${clip(app.city, 30)}; target arrival: ${clip(app.target, 10) || "not set"}`,
+        `City ids: ${clip(app.cities, 400)}`,
+        `Document ids (status): ${clip(app.docs, 900)}`,
+        `Next task ids: ${clip(app.tasks, 1500)}`,
+        `App paths: ${clip(app.paths, 600)}`,
+      ].join("\n");
       const transcript = history.map((x) => `${x.role === "user" ? "Member" : "KiwiPath"}: ${clip(x.text, 1500)}`).join("\n\n");
-      const out = await generate<{ answer: string; links: { title: string; url: string }[]; follow_ups: string[] }>(
-        { system: CHAT_SYSTEM, content: `Member's saved journey:\n${context}\n\nConversation so far:\n${transcript}\n\nReply to the member's last message.`, schema: CHAT_SCHEMA, maxTokens: 3000 },
+      const out = await generate<{ answer: string; links: { title: string; url: string }[]; follow_ups: string[]; actions: { type: string; target: string; value: string; label: string }[] }>(
+        { system: CHAT_SYSTEM, content: `Member's saved journey:\n${context}\n\nApp options:\n${options}\n\nConversation so far:\n${transcript}\n\nReply to the member's last message.`, schema: CHAT_SCHEMA, maxTokens: 3000 },
         (v) => typeof v.answer === "string" && v.answer.length > 10,
       );
       model = out.model;
       const links = (out.data.links ?? []).filter((l) => /^https:\/\/[a-z0-9.-]+\.[a-z]{2,}(\/\S*)?$/i.test(l.url)).slice(0, 4);
-      return json({ result: { ...out.data, links, follow_ups: (out.data.follow_ups ?? []).slice(0, 3) }, model: out.model, remaining: m.quota.limit - m.quota.used - 1 });
+      const actions = (out.data.actions ?? []).filter((a) => a && typeof a.target === "string" && typeof a.label === "string").slice(0, 3).map((a) => ({ type: a.type, target: clip(a.target, 80), value: clip(a.value, 40), label: clip(a.label, 60) }));
+      return json({ result: { ...out.data, links, actions, follow_ups: (out.data.follow_ups ?? []).slice(0, 3) }, model: out.model, remaining: m.quota.limit - m.quota.used - 1 });
     }
 
     return json({ error: "Unknown request." }, 400);

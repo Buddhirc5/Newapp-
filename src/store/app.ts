@@ -32,6 +32,8 @@ export interface ChatMessage {
   text: string;
   links?: { title: string; url: string }[];
   followUps?: string[];
+  /** Changes the assistant suggested; `done` once the member applied them. */
+  actions?: { type: string; target: string; value: string; label: string; done?: boolean }[];
   at: string;
 }
 
