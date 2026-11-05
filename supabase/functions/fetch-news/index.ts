@@ -8,7 +8,14 @@ const FEEDS = [
   { source: "RNZ", url: "https://www.rnz.co.nz/rss/national.xml" },
   { source: "RNZ Politics", url: "https://www.rnz.co.nz/rss/political.xml" },
   { source: "Stuff", url: "https://www.stuff.co.nz/rss" },
+  // Google News search feeds: free, no key, and always the latest coverage.
+  { source: "Google News", url: "https://news.google.com/rss/search?q=%22New+Zealand%22+(visa+OR+immigration+OR+%22Immigration+New+Zealand%22)+when:7d&hl=en-NZ&gl=NZ&ceid=NZ:en" },
+  { source: "Google News", url: "https://news.google.com/rss/search?q=%22New+Zealand%22+(%22international+students%22+OR+%22student+visa%22+OR+%22post-study%22)+when:14d&hl=en-NZ&gl=NZ&ceid=NZ:en" },
+  { source: "Google News", url: "https://news.google.com/rss/search?q=%22Sri+Lanka%22+%22New+Zealand%22+(visa+OR+migrants+OR+jobs+OR+students)+when:30d&hl=en-NZ&gl=NZ&ceid=NZ:en" },
 ];
+
+// Stories that mention migrants but aren't about moving to New Zealand.
+const OFF_TOPIC = /\b(electoral commission|election results?|polling booths?|enrol(?:ment)? to vote)\b/i;
 
 const RELEVANT =
   /\b(immigra\w*|visas?|migrants?|international students?|green list|accredited employer|residence class|skilled migrant|deport\w*|sri lank\w*|working holiday|refugees?)\b/i;
@@ -70,13 +77,15 @@ function parse(xml: string, source: string): Item[] {
     const url = link(block).trim();
     if (!title || !/^https?:\/\//.test(url)) continue;
     const text = `${title} ${summary}`;
-    if (!RELEVANT.test(text)) continue;
+    if (!RELEVANT.test(text) || OFF_TOPIC.test(text)) continue;
+    // Google News titles end with " - Outlet"; show the real outlet as the source.
+    const outlet = source === "Google News" ? field(block, ["source"]) : "";
     const date = new Date(field(block, ["pubDate", "published", "updated", "dc:date"]) || Date.now());
     items.push({
-      source,
-      title: title.slice(0, 240),
+      source: outlet || source,
+      title: (outlet ? title.replace(new RegExp(`\\s+-\\s+${outlet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`), "") : title).slice(0, 240),
       url,
-      summary,
+      summary: outlet ? "" : summary,
       tags: TAGS.filter(([, re]) => re.test(text)).map(([tag]) => tag),
       published_at: isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString(),
     });
@@ -95,7 +104,7 @@ Deno.serve(async () => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const items = parse(await res.text(), feed.source);
         all.push(...items);
-        results[feed.source] = items.length;
+        results[feed.source] = (Number(results[feed.source]) || 0) + items.length;
       } catch (e) {
         results[feed.source] = `error: ${(e as Error).message}`;
       }

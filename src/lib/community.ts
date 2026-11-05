@@ -224,12 +224,29 @@ export async function fetchNews(tag?: string): Promise<NewsItem[]> {
   if (tag && tag !== "all") query = query.contains("tags", [tag]);
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []) as NewsItem[];
+  // Admins can read removed stories; keep them out of the public feed.
+  return ((data ?? []) as (NewsItem & { hidden?: boolean })[]).filter((n) => !n.hidden);
 }
 
-export async function refreshNews(): Promise<void> {
+export async function refreshNews(): Promise<number> {
   const sb = await client();
-  await sb.functions.invoke("fetch-news", { body: {} });
+  const { data, error } = await sb.functions.invoke("fetch-news", { body: {} });
+  if (error) throw error;
+  return Number((data as { saved?: number } | null)?.saved ?? 0);
+}
+
+/** Admins: every recent story, including removed ones. */
+export async function adminNews(): Promise<(NewsItem & { hidden: boolean })[]> {
+  const sb = await client();
+  const { data, error } = await sb.from("news_items").select("*").order("published_at", { ascending: false }).limit(80);
+  if (error) throw error;
+  return (data ?? []) as (NewsItem & { hidden: boolean })[];
+}
+
+export async function setNewsHidden(id: number, hidden: boolean): Promise<void> {
+  const sb = await client();
+  const { error } = await sb.from("news_items").update({ hidden }).eq("id", id);
+  if (error) throw error;
 }
 
 // ── Member profile (cloud) ────────────────────────────────────────────────

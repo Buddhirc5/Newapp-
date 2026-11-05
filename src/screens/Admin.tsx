@@ -26,6 +26,7 @@ import { mfaState, startEnrolment, verifyCode, type MfaState } from "@/lib/admin
 import { cn } from "@/lib/cn";
 import {
   adminMembers,
+  adminNews,
   adminOrders,
   adminStats,
   adminUpdateMember,
@@ -40,6 +41,7 @@ import {
   resolveReports,
   reviewAgency,
   reviewApplication,
+  setNewsHidden,
   setOrderStatus,
   saveSetting,
   useMember,
@@ -55,13 +57,14 @@ import { HAS_SUPABASE } from "@/lib/env";
 import { formatNumber, relativeDay } from "@/lib/format";
 import { signInWithGoogle, signInWithPassword, useAuth, useGoogleEnabled } from "@/lib/sync";
 
-type Tab = "overview" | "members" | "moderation" | "agencies" | "experts" | "payments" | "settings";
+type Tab = "overview" | "members" | "moderation" | "agencies" | "news" | "experts" | "payments" | "settings";
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "members", label: "Members", icon: Users },
   { id: "moderation", label: "Moderation", icon: Flag },
   { id: "agencies", label: "Agencies", icon: Building2 },
+  { id: "news", label: "News", icon: Newspaper },
   { id: "experts", label: "Experts", icon: BadgeCheck },
   { id: "payments", label: "Payments", icon: CreditCard },
   { id: "settings", label: "Settings", icon: Settings },
@@ -210,6 +213,7 @@ function Console({ mfa, onEnrolled }: { mfa: MfaState; onEnrolled: () => void })
         {tab === "members" && <Members />}
         {tab === "moderation" && <Moderation />}
         {tab === "agencies" && <AgencyReview />}
+        {tab === "news" && <NewsAdmin />}
         {tab === "experts" && <ExpertsAdmin />}
         {tab === "payments" && <Payments />}
         {tab === "settings" && <SettingsPanel />}
@@ -323,10 +327,7 @@ function Overview() {
         variant="tinted"
         className="self-start"
         icon={<Newspaper className="size-5" aria-hidden />}
-        onClick={async () => {
-          await refreshNews().catch(() => undefined);
-          toast("News refreshed");
-        }}
+        onClick={() => refreshNews().then((n) => toast(n ? `${n} new stories added` : "No new stories right now"), () => toast("Couldn't fetch news. Try again.", "warn"))}
       >
         Fetch immigration news now
       </Button>
@@ -597,6 +598,70 @@ function AgencyReview() {
           </div>
         </Card>
       ))}
+    </div>
+  );
+}
+
+function NewsAdmin() {
+  const [items, setItems] = useState<Awaited<ReturnType<typeof adminNews>> | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => adminNews().then(setItems, (e: Error) => (toast(e.message, "warn"), setItems([]))), []);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  const toggle = (id: number, hidden: boolean) =>
+    setNewsHidden(id, hidden).then(
+      () => {
+        setItems((list) => list?.map((n) => (n.id === id ? { ...n, hidden } : n)) ?? null);
+        toast(hidden ? "Story removed" : "Story restored");
+      },
+      (e: Error) => toast(e.message, "warn"),
+    );
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          icon={<Newspaper className="size-5" aria-hidden />}
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              const n = await refreshNews();
+              toast(n ? `${n} new stories added` : "No new stories right now");
+              await load();
+            } catch {
+              toast("Couldn't fetch news. Try again.", "warn");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? "Fetching…" : "Fetch latest stories"}
+        </Button>
+        <p className="text-footnote text-label-2">Pulled every 3 hours from RNZ, Beehive, Stuff and Google News. Removed stories stay hidden.</p>
+      </div>
+      {!items && <div className="h-40 animate-pulse rounded-card bg-fill-2" />}
+      {items?.length === 0 && <p className="px-1 text-subhead text-label-2">No stories yet. Fetch the latest to fill the feed.</p>}
+      <ul className="flex flex-col gap-2">
+        {items?.map((n) => (
+          <li key={n.id}>
+            <Card className={cn("flex items-start gap-3 p-4", n.hidden && "opacity-60")}>
+              <div className="min-w-0 flex-1">
+                <a href={n.url} target="_blank" rel="noreferrer" className="text-callout font-semibold hover:underline">
+                  {n.title}
+                </a>
+                <p className="text-footnote text-label-2">
+                  {n.source} · {relativeDay(n.published_at)}
+                  {n.hidden ? " · removed" : ""}
+                </p>
+              </div>
+              <Button size="sm" variant={n.hidden ? "tinted" : "destructive"} onClick={() => toggle(n.id, !n.hidden)} aria-label={`${n.hidden ? "Restore" : "Remove"} story: ${n.title}`}>
+                {n.hidden ? "Restore" : "Remove"}
+              </Button>
+            </Card>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

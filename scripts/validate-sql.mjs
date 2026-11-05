@@ -154,6 +154,9 @@ check("outsiders can't post into the chat", await as(C, () => fails(() => db.que
 check("members can't message themselves", await as(A, () => fails(() => db.query("select public.start_conversation($1)", [listing]))));
 
 check("news is public", !(await as(null, () => fails(() => db.query("select * from public.news_items")))));
+await db.exec("insert into public.news_items (source, title, url, published_at, hidden) values ('x', 'Hidden story', 'https://hidden.example', now(), true)");
+check("removed news is hidden from visitors", (await as(null, () => db.query("select id from public.news_items where hidden"))).rows.length === 0);
+check("members can't remove news", (await as(A, () => db.query("update public.news_items set hidden = true returning id"))).rows.length === 0);
 check("visitors can't write news", await as(A, () => fails(() => db.query("insert into public.news_items (source, title, url, published_at) values ('x', 'y', 'https://x', now())"))));
 check("members upload photos only to their folder", await as(A, () => fails(() => db.query(`insert into storage.objects (bucket_id, name) values ('listing-photos', '${B}/x.jpg')`))));
 
