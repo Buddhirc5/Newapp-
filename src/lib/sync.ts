@@ -130,9 +130,32 @@ export async function sendSignInCode(email: string, captchaToken?: string): Prom
   return error ? { ok: false, message: error.message } : { ok: true };
 }
 
+const SIGN_IN_KEY = "kp-just-signed-in";
+
+/** Marks that a sign-in is under way, so admins land in the admin console afterwards. */
+export function markSignIn() {
+  try {
+    sessionStorage.setItem(SIGN_IN_KEY, String(Date.now()));
+  } catch {
+    /* storage blocked */
+  }
+}
+
+/** True once, right after a sign-in started in the last 10 minutes. */
+export function takeSignIn(): boolean {
+  try {
+    const at = Number(sessionStorage.getItem(SIGN_IN_KEY));
+    sessionStorage.removeItem(SIGN_IN_KEY);
+    return at > Date.now() - 10 * 60_000;
+  } catch {
+    return false;
+  }
+}
+
 export async function verifySignInCode(email: string, token: string): Promise<{ ok: boolean; message?: string }> {
   const sb = await getSupabase();
   if (!sb) return { ok: false, message: "Cloud sync isn't set up for this app yet." };
+  markSignIn();
   const { error } = await sb.auth.verifyOtp({ email, token, type: "email" });
   return error ? { ok: false, message: error.message } : { ok: true };
 }
@@ -147,6 +170,7 @@ export async function signOut(everywhere = false): Promise<void> {
 export async function signInWithGoogle(): Promise<{ ok: boolean; message?: string }> {
   const sb = await getSupabase();
   if (!sb) return { ok: false, message: "Sign-in isn't available in this version." };
+  markSignIn();
   const { error } = await sb.auth.signInWithOAuth({
     provider: "google",
     options: { redirectTo: `${window.location.origin}/start`, queryParams: { prompt: "select_account" } },

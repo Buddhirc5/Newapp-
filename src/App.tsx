@@ -9,7 +9,7 @@ import { HAS_SUPABASE, IS_PREVIEW } from "@/lib/env";
 import { loadRemoteContent } from "@/lib/content";
 import { loadMember, useMember } from "@/lib/community";
 import { Settle } from "@/screens/Settle";
-import { startSync, useAuth } from "@/lib/sync";
+import { startSync, takeSignIn, useAuth } from "@/lib/sync";
 import { useApp } from "@/store/app";
 import { Journey } from "@/screens/Journey";
 import { NotFound } from "@/screens/NotFound";
@@ -124,6 +124,16 @@ function useThemeAttribute() {
     const meta = document.querySelector('meta[name="theme-color"]:not([media])');
     if (meta) meta.setAttribute("content", theme === "dark" ? "#100F06" : "#F5F4ED");
   }, [theme]);
+}
+
+// Admins who just signed in go straight to the admin console (it still asks
+// for the authenticator code). Later visits to the member app aren't redirected.
+if (!IS_PREVIEW) {
+  useMember.subscribe((state, prev) => {
+    if (!state.userId || state.userId === prev.userId) return;
+    const fresh = takeSignIn();
+    if (fresh && state.isAdmin && !location.pathname.startsWith("/admin")) void router.navigate("/admin", { replace: true });
+  });
 }
 
 export default function App() {
