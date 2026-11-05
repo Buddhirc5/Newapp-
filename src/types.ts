@@ -159,6 +159,28 @@ export interface CvDraft {
   experience: CvExperience[];
   education: string;
   certifications: string;
+  volunteering?: string;
+  interests?: string;
+  /** Up to three referees. Empty with refereesOnRequest means "Available on request". */
+  referees?: CvReferee[];
+  refereesOnRequest?: boolean;
+}
+
+export interface CvReferee {
+  id: string;
+  name: string;
+  title: string;
+  company: string;
+  phone: string;
+  email: string;
+  relationship: string;
+}
+
+export interface CvSavedDraft {
+  id: string;
+  name: string;
+  savedAt: string;
+  cv: CvDraft;
 }
 
 export type CourseStatus = "researching" | "applied" | "offer" | "accepted" | "declined";

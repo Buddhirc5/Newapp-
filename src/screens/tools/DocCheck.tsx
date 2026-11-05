@@ -23,6 +23,7 @@ const TYPES: [string, string][] = [
   ["marriage_certificate", "Marriage certificate"],
   ["birth_certificate", "Birth certificate"],
   ["sponsor_letter", "Sponsor letter"],
+  ["cv", "CV / résumé"],
   ["other", "Something else"],
 ];
 
@@ -128,7 +129,7 @@ function Checker() {
   );
 }
 
-function ReviewCard({ review }: { review: DocReview }) {
+export function ReviewCard({ review }: { review: DocReview }) {
   const icon = { fix: MinusCircle, improve: CircleAlert, ok: CircleCheck };
   const tone = { fix: "bg-coral-soft", improve: "bg-gold-soft", ok: "bg-green-soft" };
   return (

@@ -6,7 +6,7 @@ import { getSupabase } from "./supabase";
 
 export interface AuthState {
   ready: boolean;
-  user: { id: string; email: string | null } | null;
+  user: { id: string; email: string | null; name: string | null; phone: string | null } | null;
   status: "idle" | "syncing" | "synced" | "error";
   lastSyncedAt: string | null;
   error: string | null;
@@ -73,12 +73,12 @@ export function startSync(): () => void {
     if (cancelled) return;
     const { data } = await sb.auth.getSession();
     const user = data.session?.user;
-    useAuth.setState({ ready: true, user: user ? { id: user.id, email: user.email ?? null } : null });
+    useAuth.setState({ ready: true, user: user ? toAuthUser(user) : null });
     if (user) await pull(user.id);
 
     const { data: sub } = sb.auth.onAuthStateChange((event, session) => {
       const next = session?.user;
-      useAuth.setState({ user: next ? { id: next.id, email: next.email ?? null } : null });
+      useAuth.setState({ user: next ? toAuthUser(next) : null });
       if (event === "SIGNED_IN" && next) void pull(next.id);
       if (event === "SIGNED_OUT") useAuth.setState({ status: "idle", lastSyncedAt: null });
     });
@@ -160,4 +160,10 @@ export function useGoogleEnabled(): boolean {
     };
   }, []);
   return on;
+}
+
+function toAuthUser(u: { id: string; email?: string | null; phone?: string | null; user_metadata?: Record<string, unknown> }) {
+  const meta = u.user_metadata ?? {};
+  const name = typeof meta.full_name === "string" ? meta.full_name : typeof meta.name === "string" ? meta.name : null;
+  return { id: u.id, email: u.email ?? null, name, phone: u.phone || null };
 }

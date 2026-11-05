@@ -74,6 +74,12 @@ const REMOVE: Check[] = [
     patterns: [/\b(gender|sex|nationality|race|ethnicity|height|weight|blood\s+group)\s*[:-]/gi],
   },
   {
+    id: "salary",
+    title: "Remove expected salary",
+    detail: "Salary is discussed at interview or offer stage, not on an NZ CV.",
+    patterns: [/\b(expected|current|present)\s+(salary|remuneration|package)\b/gi],
+  },
+  {
     id: "declaration",
     title: "Remove the declaration",
     detail: "Lines like 'I hereby declare that the above information is true' aren't used in NZ. End with referees instead.",
@@ -97,7 +103,29 @@ function examples(text: string, patterns: RegExp[]): string[] {
   return [...found];
 }
 
-export function checkCv(text: string): CvReport {
+const US_SPELLING: [RegExp, string][] = [
+  [/\b(organiz(e|ed|es|ing|ation|ations))\b/gi, "organis…"],
+  [/\b(color|colors)\b/gi, "colour"],
+  [/\b(center|centers)\b/gi, "centre"],
+  [/\b(analyz(e|ed|es|ing))\b/gi, "analys…"],
+  [/\b(optimiz(e|ed|es|ing|ation))\b/gi, "optimis…"],
+  [/\b(prioritiz(e|ed|es|ing))\b/gi, "prioritis…"],
+  [/\b(behavior|behaviors)\b/gi, "behaviour"],
+  [/\b(program)\b(?!m)/gi, "programme (except software)"],
+  [/\b(licens(e))\b(?=\s+(holder|number))/gi, "licence"],
+];
+
+const SL_INSTITUTIONS =
+  /\b(university of (colombo|moratuwa|peradeniya|kelaniya|ruhuna|jaffna|sri jayewardenepura)|sliit|nsbm|iit\b|open university of sri lanka|institute of chartered accountants of sri lanka|ca sri lanka|g\.?c\.?e\.?\s*(a\/l|o\/l|advanced level|ordinary level)|sri lanka)\b/i;
+
+export interface CheckOptions {
+  /** The uploaded file had a picture on the first page. */
+  hasPhoto?: boolean;
+  /** Page count of an uploaded PDF. */
+  pages?: number;
+}
+
+export function checkCv(text: string, opts: CheckOptions = {}): CvReport {
   const clean = text.slice(0, 60_000);
   const words = clean.split(/\s+/).filter(Boolean).length;
   const issues: CvIssue[] = [];
@@ -105,6 +133,9 @@ export function checkCv(text: string): CvReport {
   for (const check of REMOVE) {
     const found = examples(clean, check.patterns);
     if (found.length) issues.push({ id: check.id, kind: "remove", title: check.title, detail: check.detail, examples: found });
+  }
+  if (opts.hasPhoto && !issues.some((i) => i.id === "photo")) {
+    issues.unshift({ id: "photo", kind: "remove", title: "Remove your photo", detail: "Your file has a picture on the first page. NZ CVs don't include photos.", examples: [] });
   }
 
   const actionVerbs = (clean.match(ACTION_VERBS) ?? []).length;
@@ -138,7 +169,7 @@ export function checkCv(text: string): CvReport {
       examples: [],
     });
   }
-  if (words > 1300) {
+  if (words > 1300 || (opts.pages ?? 0) > 3) {
     issues.push({
       id: "length",
       kind: "improve",
@@ -155,6 +186,30 @@ export function checkCv(text: string): CvReport {
       detail: "Include each role's dates, the employer's industry and three to five achievement bullets.",
       examples: [],
     });
+  }
+
+  if (words > 0) {
+    const us = US_SPELLING.flatMap(([re, nz]) => (clean.match(re) ?? []).slice(0, 1).map((m) => `${m} → ${nz}`)).slice(0, 4);
+    if (us.length)
+      issues.push({ id: "spelling", kind: "improve", title: "Use NZ English spelling", detail: "NZ employers use British-style spelling. Switch these words.", examples: us });
+    const firstPerson = (clean.match(/(^|[.•\n]\s*)(i|my)\s/gim) ?? []).length;
+    if (firstPerson >= 4)
+      issues.push({ id: "first-person", kind: "improve", title: "Drop 'I' and 'my' from bullets", detail: "Start bullets with an action verb instead: 'Managed…', not 'I managed…'.", examples: [] });
+    if (!/[\w.+-]+@[\w-]+\.[\w.]+/.test(clean) || !/(\+?\d[\d\s-]{7,}\d)/.test(clean))
+      issues.push({ id: "contact", kind: "improve", title: "Add your email and phone", detail: "Put them at the top, with the country code: +94 77 123 4567.", examples: [] });
+    if (!/\b(referees?|references?)\b/i.test(clean))
+      issues.push({ id: "referees", kind: "improve", title: "Add referees", detail: "End with two referees (name, job title, company, phone, email), or 'Referees available on request'.", examples: [] });
+    if (SL_INSTITUTIONS.test(clean) && !/\bnzqa\b/i.test(clean))
+      issues.push({
+        id: "nzqa",
+        kind: "improve",
+        title: "Show the NZ level of your qualifications",
+        detail: "Add the NZQA equivalent next to Sri Lankan qualifications, e.g. 'BSc (Hons), University of Moratuwa (NZQA Level 8)'. NZQA can assess them for you.",
+        examples: [],
+      });
+    if (/\b(profile|summary|about me|professional summary)\b/i.test(clean) && !/\bobjective\b/i.test(clean))
+      issues.push({ id: "profile", kind: "good", title: "Has a profile summary", detail: "A short summary at the top is what NZ recruiters read first.", examples: [] });
+    if (numbers >= 3) issues.push({ id: "numbers-good", kind: "good", title: "Uses measurable results", detail: "Numbers make your achievements believable.", examples: [] });
   }
 
   const mentionsRights = /\b(visa|work\s+rights|eligible\s+to\s+work|sponsorship|open\s+work)\b/i.test(clean);
@@ -197,6 +252,10 @@ export const EMPTY_CV: CvDraft = {
   experience: [],
   education: "",
   certifications: "",
+  volunteering: "",
+  interests: "",
+  referees: [],
+  refereesOnRequest: true,
 };
 
 /** Plain-text version of the CV for copying into job portals. */
@@ -219,8 +278,41 @@ export function cvToText(cv: CvDraft): string {
   }
   if (cv.education) push("", "EDUCATION", ...splitLines(cv.education));
   if (cv.certifications) push("", "CERTIFICATIONS", ...splitLines(cv.certifications));
-  push("", "REFEREES", "Available on request");
+  if (cv.volunteering) push("", "VOLUNTEERING", ...splitLines(cv.volunteering).map((b) => `• ${b}`));
+  if (cv.interests) push("", "INTERESTS", cv.interests.trim());
+  push("", "REFEREES", ...refereeLines(cv));
   return lines.join("\n");
+}
+
+/** NZ CVs end with referees, or "Available on request" when none are listed. */
+export function refereeLines(cv: CvDraft): string[] {
+  const refs = (cv.referees ?? []).filter((r) => r.name.trim());
+  if (!refs.length || cv.refereesOnRequest) return ["Available on request"];
+  return refs.flatMap((r, i) => [
+    ...(i ? [""] : []),
+    [r.name, [r.title, r.company].filter(Boolean).join(", ")].filter(Boolean).join(" – "),
+    ...(r.relationship ? [r.relationship] : []),
+    [r.phone, r.email].filter(Boolean).join(" | "),
+  ]).filter((l, i, a) => l || a[i + 1] !== undefined);
+}
+
+/** Pulls contact details from the top of an existing CV. */
+export function guessContact(text: string): Partial<CvDraft> {
+  const out: Partial<CvDraft> = {};
+  const email = text.match(/[\w.+-]+@[\w-]+(\.[\w-]+)+/);
+  if (email) out.email = email[0];
+  const phone = text.match(/(\+?\d{1,3}[\s-]?)?\(?\d{2,3}\)?[\s-]?\d{3}[\s-]?\d{3,4}\b/);
+  if (phone) out.phone = phone[0].trim();
+  const li = text.match(/(https?:\/\/)?(www\.)?linkedin\.com\/in\/[\w-]+/i);
+  if (li) out.linkedin = li[0].replace(/^https?:\/\/(www\.)?/i, "");
+  const firstLine = text
+    .split(/\n/)
+    .map((l) => l.trim())
+    .find((l) => l && !/^(curriculum vitae|resume|résumé|cv)$/i.test(l) && !/@|\d{4}/.test(l));
+  if (firstLine && firstLine.split(/\s+/).length <= 5 && /^[A-Za-z .'-]+$/.test(firstLine)) {
+    out.fullName = firstLine.replace(/\b([A-Z])([A-Z]+)\b/g, (_, a: string, b: string) => a + b.toLowerCase());
+  }
+  return out;
 }
 
 export function splitLines(value: string): string[] {

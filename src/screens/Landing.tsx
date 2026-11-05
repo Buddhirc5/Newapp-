@@ -17,6 +17,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Mascot, Sparkle } from "@/components/Mascot";
 import { SignInSheet } from "@/components/SignInSheet";
 import { TINT } from "@/components/tints";
@@ -81,12 +82,12 @@ export function Landing() {
               {busy ? "Opening Google…" : "Continue with Google"}
             </Button>
           )}
-          <Button variant={google ? (dark ? "tinted" : "outline") : dark ? "light" : "dark"} className={dark ? "bg-paper/10 text-paper hover:bg-paper/20" : ""} onClick={() => setEmailOpen(true)} icon={<Mail className="size-5" aria-hidden />} block>
+          <Button variant={google ? (dark ? "tinted" : "outline") : dark ? "light" : "dark"} className={dark && google ? "bg-white/15 text-white hover:bg-white/25" : ""} onClick={() => setEmailOpen(true)} icon={<Mail className="size-5" aria-hidden />} block>
             {google ? "Use my email instead" : "Continue with email"}
           </Button>
         </>
       ) : null}
-      <button type="button" onClick={() => navigate("/welcome")} className={cn("min-h-11 text-subhead font-semibold", dark ? "text-paper/80" : "text-teal-ink")}>
+      <button type="button" onClick={() => navigate("/welcome")} className={cn("min-h-11 text-subhead font-semibold", dark ? "text-white/90 underline-offset-4 hover:underline" : "text-teal-ink")}>
         Try it without an account
       </button>
     </div>
@@ -98,11 +99,14 @@ export function Landing() {
       <header className="relative z-10 gutter-x">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between">
           <p className="type-display text-title3">KiwiPath</p>
-          {HAS_SUPABASE && (
-            <Button size="sm" variant="tinted" onClick={() => setEmailOpen(true)}>
-              Sign in
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            {HAS_SUPABASE && (
+              <Button size="sm" variant="tinted" onClick={() => setEmailOpen(true)}>
+                Sign in
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 

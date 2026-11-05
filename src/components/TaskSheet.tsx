@@ -8,7 +8,7 @@ import { ICONS } from "./icons";
 import { TINT } from "./tints";
 import { ProgressRing } from "./ui/Bits";
 import { Sheet } from "./ui/Sheet";
-import { toast } from "./ui/Toast";
+import { undoToast } from "./ui/Toast";
 
 /** Level detail with its checklist, opened from the journey map. */
 export function TaskSheet({ pathway, levelIndex, onClose }: { pathway: Pathway; levelIndex: number | null; onClose: () => void }) {
@@ -54,7 +54,8 @@ export function TaskSheet({ pathway, levelIndex, onClose }: { pathway: Pathway; 
                       onClick={() => {
                         tick(isDone ? 6 : [8, 40, 8]);
                         toggleTask(task.id);
-                        if (!isDone) toast(`Done! +${task.xp} points`);
+                        if (!isDone) undoToast(`Done! +${task.xp} points`, () => toggleTask(task.id, false));
+                        else undoToast("Marked as not done", () => toggleTask(task.id, true), "info");
                       }}
                       className={cn(
                         "-m-1.5 grid size-11 shrink-0 place-items-center rounded-full",

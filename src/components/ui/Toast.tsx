@@ -8,16 +8,30 @@ interface Toast {
   id: number;
   text: string;
   tone: Tone;
+  action?: { label: string; run: () => void };
 }
 
 const useToasts = create<{ items: Toast[] }>(() => ({ items: [] }));
 let next = 1;
 
+const dismiss = (id: number) => useToasts.setState((s) => ({ items: s.items.filter((t) => t.id !== id) }));
+
 /** Shows a short confirmation banner, e.g. "Saved". */
-export function toast(text: string, tone: Tone = "good") {
+export function toast(text: string, tone: Tone = "good", action?: Toast["action"]) {
   const id = next++;
-  useToasts.setState((s) => ({ items: [...s.items.slice(-2), { id, text, tone }] }));
-  window.setTimeout(() => useToasts.setState((s) => ({ items: s.items.filter((t) => t.id !== id) })), 2600);
+  useToasts.setState((s) => ({ items: [...s.items.slice(-2), { id, text, tone, action }] }));
+  window.setTimeout(() => dismiss(id), action ? 6000 : 2600);
+}
+
+/** A confirmation with an Undo button, for changes that are easy to make by mistake. */
+export function undoToast(text: string, undo: () => void, tone: Tone = "good") {
+  toast(text, tone, {
+    label: "Undo",
+    run: () => {
+      undo();
+      toast("Undone", "info");
+    },
+  });
 }
 
 const ICON = { good: CircleCheck, info: Info, warn: TriangleAlert };
@@ -46,7 +60,19 @@ export function Toaster() {
               className="pointer-events-auto flex max-w-sm items-center gap-2.5 rounded-full bg-night py-2.5 pr-5 pl-3.5 text-subhead font-semibold text-paper shadow-float"
             >
               <Icon className={cn("size-5", t.tone === "good" ? "text-green" : t.tone === "warn" ? "text-gold" : "text-malibu")} aria-hidden />
-              {t.text}
+              <span className="min-w-0">{t.text}</span>
+              {t.action && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    dismiss(t.id);
+                    t.action!.run();
+                  }}
+                  className="-my-1.5 -mr-3 ml-1 min-h-9 shrink-0 rounded-full bg-paper/15 px-3.5 text-subhead font-bold text-gold hover:bg-paper/25"
+                >
+                  {t.action.label}
+                </button>
+              )}
             </motion.div>
           );
         })}

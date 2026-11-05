@@ -35,6 +35,8 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+          // PDF reading and writing load only when someone uses CV Studio; don't make every visitor download them.
+          globIgnores: ["**/pdf-*.js", "**/pdf.worker*", "**/jspdf*.js", "**/html2canvas*.js", "**/purify*.js", "**/index.es-*.js"],
           navigateFallback: "/index.html",
         },
       }),

@@ -17,6 +17,7 @@ const DOC_TYPES: Record<string, string> = {
   birth_certificate: "birth certificate",
   degree_certificate: "degree certificate or academic transcript",
   sponsor_letter: "sponsor or financial undertaking letter",
+  cv: "CV (résumé) for New Zealand employers: check it follows NZ conventions (no photo, date of birth, NIC, religion or marital status; achievement bullets; work rights stated; referees; NZ English)",
   other: "supporting document",
 };
 

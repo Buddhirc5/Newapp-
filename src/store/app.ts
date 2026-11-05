@@ -9,6 +9,7 @@ import type {
   Booking,
   Course,
   CvDraft,
+  CvSavedDraft,
   DocStatus,
   Lang,
   MoneyPlan,
@@ -41,6 +42,7 @@ export interface AppData {
   money: MoneyPlan;
   savings: { savedLkr: number; monthlyLkr: number; goalSet: boolean };
   cv: CvDraft;
+  cvDrafts: CvSavedDraft[];
   cvChecked: boolean;
   shortlist: Course[];
   docs: Record<string, DocStatus>;
@@ -80,6 +82,7 @@ export function freshData(): AppData {
     money: DEFAULT_PLAN,
     savings: { savedLkr: 0, monthlyLkr: 0, goalSet: false },
     cv: EMPTY_CV,
+    cvDrafts: [],
     cvChecked: false,
     shortlist: [],
     docs: {},
@@ -191,6 +194,10 @@ interface Actions {
   setMoney: (patch: Partial<MoneyPlan>) => void;
   setSavings: (patch: Partial<AppData["savings"]>) => void;
   setCv: (patch: Partial<CvDraft>) => void;
+  replaceCv: (cv: CvDraft) => void;
+  saveCvDraft: (name: string) => CvSavedDraft;
+  deleteCvDraft: (id: string) => void;
+  restoreCvDrafts: (drafts: CvSavedDraft[]) => void;
   markCvChecked: () => void;
   upsertCourse: (course: Course) => void;
   removeCourse: (id: string) => void;
@@ -292,6 +299,19 @@ export const useApp = create<AppState>()(
       setSavings: (patch) => set((s) => ({ savings: { ...s.savings, ...patch }, ...stamp() })),
 
       setCv: (patch) => set((s) => ({ cv: { ...s.cv, ...patch }, ...stamp() })),
+
+      replaceCv: (cv) => set({ cv, ...stamp() }),
+
+      saveCvDraft: (name) => {
+        const draft: CvSavedDraft = { id: uid("cv"), name: name.trim().slice(0, 60) || "My CV", savedAt: new Date().toISOString(), cv: get().cv };
+        // Saving under an existing name replaces that draft.
+        set((s) => ({ cvDrafts: [draft, ...s.cvDrafts.filter((d) => d.name.toLowerCase() !== draft.name.toLowerCase())].slice(0, 12), ...stamp() }));
+        return draft;
+      },
+
+      deleteCvDraft: (id) => set((s) => ({ cvDrafts: s.cvDrafts.filter((d) => d.id !== id), ...stamp() })),
+
+      restoreCvDrafts: (cvDrafts) => set({ cvDrafts, ...stamp() }),
 
       markCvChecked: () => set({ cvChecked: true, ...stamp() }),
 

@@ -34,13 +34,13 @@ interface ClaudeHost {
 export type SaveOutcome = "saved" | "declined" | "unavailable";
 
 /** Saves a generated file. In the embedded preview the viewer confirms the save first. */
-export async function saveFile(filename: string, data: string, mime = "text/plain"): Promise<SaveOutcome> {
+export async function saveFile(filename: string, data: string | Blob, mime = "text/plain"): Promise<SaveOutcome> {
   if (IS_PREVIEW) {
     try {
       const host = (window as unknown as { claude?: ClaudeHost }).claude;
       const downloads = (await host?.use?.("downloads")) as DownloadsApi | null | undefined;
       if (!downloads) return "unavailable";
-      await downloads.save({ filename, data: new Blob([data], { type: mime }) });
+      await downloads.save({ filename, data: typeof data === "string" ? new Blob([data], { type: mime }) : data });
       return "saved";
     } catch (e) {
       const code = (e as { code?: string })?.code;
@@ -48,7 +48,7 @@ export async function saveFile(filename: string, data: string, mime = "text/plai
     }
   }
   try {
-    const url = URL.createObjectURL(new Blob([data], { type: mime }));
+    const url = URL.createObjectURL(typeof data === "string" ? new Blob([data], { type: mime }) : data);
     const link = document.createElement("a");
     link.href = url;
     link.download = filename;

@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/sync";
 import { useMember } from "@/lib/community";
 import { Mascot } from "../Mascot";
 import { SampleBanner } from "../SampleBanner";
+import { ThemeToggle } from "../ThemeToggle";
 
 interface Tab {
   to: string;
@@ -154,7 +155,11 @@ function Sidebar() {
           ))}
         </ul>
       </nav>
-      <div className="mt-auto rounded-tile bg-fill px-4 py-3 text-footnote text-label-2">
+      <div className="mt-auto flex items-center justify-between gap-2 px-2 pb-3">
+        <span className="text-footnote font-semibold text-label-2">Appearance</span>
+        <ThemeToggle />
+      </div>
+      <div className="rounded-tile bg-fill px-4 py-3 text-footnote text-label-2">
         {name ? `Hi ${name}. ` : ""}KiwiPath shares general information, not immigration advice. Check official sources before you apply.
       </div>
     </aside>

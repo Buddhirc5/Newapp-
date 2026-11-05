@@ -8,7 +8,7 @@ import { TaskSheet } from "@/components/TaskSheet";
 import { TINT } from "@/components/tints";
 import { Avatar, Card, PointsPill, ProgressDashes, SectionHeader } from "@/components/ui/Bits";
 import { Button, ButtonLink } from "@/components/ui/Button";
-import { toast } from "@/components/ui/Toast";
+import { undoToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/cn";
 import { usePathways } from "@/lib/content";
 import { aucklandLeadHours, timeIn, todayKey, ZONES } from "@/lib/format";
@@ -41,7 +41,7 @@ export function Journey() {
 
   const completeTask = (task: Task) => {
     toggleTask(task.id, true);
-    toast(`Nice! +${task.xp} points`);
+    undoToast(`Nice! +${task.xp} points`, () => toggleTask(task.id, false));
   };
 
   return (
