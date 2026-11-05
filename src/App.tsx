@@ -27,6 +27,7 @@ const routes: RouteObject[] = [
   { path: "/landing", lazy: async () => ({ Component: (await import("@/screens/Landing")).Landing }) },
   // Outside the app shell, so visitors who haven't started can read it from the landing page.
   { path: "/privacy", lazy: async () => ({ Component: (await import("@/screens/Privacy")).Privacy }) },
+  { path: "/terms", lazy: async () => ({ Component: (await import("@/screens/Terms")).Terms }) },
   { path: "/admin", lazy: async () => ({ Component: (await import("@/screens/Admin")).Admin }) },
   { path: "/start", lazy: async () => ({ Component: (await import("@/screens/Start")).Start }) },
   {
