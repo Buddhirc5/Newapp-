@@ -70,25 +70,25 @@ export function Tools() {
     <Page title={t("tools.title")} lead="Everything you need between deciding to move and your first week in New Zealand.">
       <div className="flex flex-col gap-7">
         <section aria-label="Featured tools" className="-mx-4 sm:mx-0">
-          <ul ref={track} className="no-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-4 px-4 pt-6 pb-2 sm:scroll-px-0 sm:px-0">
+          <ul ref={track} className="no-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-4 px-4 pt-3 pb-2 sm:scroll-px-0 sm:px-0">
             {TOOLS.map((tool, i) => (
-              <li key={tool.to} data-index={i} className="w-[82%] max-w-[22rem] shrink-0 snap-start sm:w-[22rem]">
+              <li key={tool.to} data-index={i} className="w-[64%] max-w-[22rem] shrink-0 snap-start sm:w-[22rem]">
                 <Link
                   to={tool.to}
-                  className={cn("group relative flex h-[25rem] flex-col overflow-hidden rounded-[2.25rem] p-5 transition-transform active:scale-[0.985]", TINT[tool.tint].solid)}
+                  className={cn("group relative flex h-[19rem] flex-col overflow-hidden rounded-[2rem] p-4 sm:h-[25rem] sm:rounded-[2.25rem] sm:p-5 transition-transform active:scale-[0.985]", TINT[tool.tint].solid)}
                 >
                   <div className="topo-fill pointer-events-none absolute inset-0 text-ink/[0.07]" aria-hidden />
                   <div className="relative flex flex-col items-center pt-2">
-                    <span className="type-display rounded-[1.4rem] bg-white px-5 pt-2 pb-1 text-[2rem] leading-none text-ink">{tool.title[0]}</span>
-                    <span className="type-display -mt-1 rounded-[1.4rem] bg-white px-5 pt-1 pb-2.5 text-[2rem] leading-none text-ink">{tool.title[1]}</span>
-                    <p className="mt-3 max-w-[16rem] text-center text-subhead font-semibold opacity-80">{tool.desc}</p>
+                    <span className="type-display rounded-[1.2rem] bg-white px-4 pt-1.5 pb-1 text-[1.6rem] leading-none text-ink sm:px-5 sm:pt-2 sm:text-[2rem]">{tool.title[0]}</span>
+                    <span className="type-display -mt-1 rounded-[1.2rem] bg-white px-4 pt-1 pb-2 text-[1.6rem] leading-none text-ink sm:px-5 sm:pb-2.5 sm:text-[2rem]">{tool.title[1]}</span>
+                    <p className="mt-2 max-w-[16rem] text-center text-footnote font-semibold opacity-80 sm:mt-3 sm:text-subhead">{tool.desc}</p>
                   </div>
                   <div className="relative mt-auto flex justify-center">
-                    <Mascot mood={tool.mood} pose={tool.pose} tint={tool.mascotTint} className="w-40" />
+                    <Mascot mood={tool.mood} pose={tool.pose} tint={tool.mascotTint} className="w-24 sm:w-40" />
                     <Sparkle className="absolute top-2 left-8 size-5 text-white" />
                     <Sparkle className="absolute top-10 right-10 size-3.5 text-white" delay={1} />
                   </div>
-                  <span className="relative -mb-1 inline-flex min-h-[3.25rem] items-center justify-center gap-2 rounded-full bg-night text-headline font-semibold text-paper">
+                  <span className="relative -mb-1 inline-flex min-h-11 items-center sm:min-h-[3.25rem] justify-center gap-2 rounded-full bg-night text-headline font-semibold text-paper">
                     Open
                     <ArrowRight className="size-5 transition-transform group-hover:translate-x-1" aria-hidden />
                   </span>

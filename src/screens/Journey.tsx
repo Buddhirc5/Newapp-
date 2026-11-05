@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AiCoach } from "@/components/AiCoach";
 import { Link } from "react-router";
-import { ArrowRight, ArrowUpRight, Check, ChevronRight, Flame, MapPin, Plane } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Briefcase, CalendarRange, Check, ChevronRight, Files, Flame, Landmark, MapPin, Plane, Sparkles } from "lucide-react";
 import { ICONS } from "@/components/icons";
 import { Page } from "@/components/layout/Page";
 import { Mascot, Sparkle } from "@/components/Mascot";
 import { TaskSheet } from "@/components/TaskSheet";
 import { TINT } from "@/components/tints";
-import { Avatar, Card, PointsPill, ProgressDashes, SectionHeader } from "@/components/ui/Bits";
+import { Avatar, Card, PointsPill, ProgressDashes, ProgressRing, SectionHeader } from "@/components/ui/Bits";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { undoToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/cn";
@@ -49,95 +49,96 @@ export function Journey() {
     <Page
       title="Journey"
       hero={
-        <div className="flex flex-col gap-5 pt-1 pb-6">
-          <div className="flex items-center justify-between gap-3">
-            <Link to="/me" className="inline-flex min-h-11 items-center gap-2 rounded-full bg-surface py-1 pr-4 pl-1 shadow-card" aria-label="Your profile">
-              <Avatar name={profile.name || "You"} size={36} tint="lavender" />
-              <span className="max-w-[9rem] truncate text-subhead font-semibold">{profile.name || "You"}</span>
+        <div className="flex flex-col gap-4 pt-1 pb-4">
+          <div className="flex items-center gap-3">
+            <Link to="/me" aria-label="Your profile" className="shrink-0">
+              <Avatar name={profile.name || "You"} size={44} tint="lavender" />
             </Link>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-footnote font-semibold text-label-2">
+                {t("greet")}
+                {profile.name ? `, ${profile.name.split(" ")[0]}` : ""}
+              </p>
+              <h1 className="type-display text-title3 leading-tight sm:text-title1">{t("journey.title")}</h1>
+            </div>
             <PointsPill points={points} />
           </div>
-          <div>
-            <p className="text-title3 font-semibold text-label-2">
-              {t("greet")}
-              {profile.name ? `, ${profile.name}` : ""}
-            </p>
-            <h1 className="type-display mt-1 text-hero">{t("journey.title")}</h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              to={`/paths/${pathway.id}`}
-              className={cn("inline-flex min-h-9 items-center gap-1.5 rounded-full px-3.5 text-subhead font-semibold", TINT[pathway.tint].solid)}
-            >
-              {pathway.short}
-              <ChevronRight className="size-4" aria-hidden />
-            </Link>
-            <span className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-surface px-3.5 text-subhead font-semibold shadow-card">
-              <Flame className="size-4 text-orange" aria-hidden />
-              {streak} day{streak === 1 ? "" : "s"} streak
+
+          <Link to={`/paths/${pathway.id}`} className="flex items-center gap-3 rounded-[1.4rem] bg-surface p-3 pr-4 shadow-card">
+            <ProgressRing value={progress.percent / 100} size={48} stroke={5}>
+              <span className="text-caption font-bold tabular">{progress.percent}%</span>
+            </ProgressRing>
+            <span className="min-w-0 flex-1">
+              <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-caption font-bold", TINT[pathway.tint].solid)}>{pathway.short}</span>
+              <span className="mt-1 flex items-center gap-3 text-footnote text-label-2">
+                <span className="inline-flex items-center gap-1">
+                  <Flame className="size-3.5 text-orange" aria-hidden />
+                  {streak} day{streak === 1 ? "" : "s"} streak
+                </span>
+                <span className="tabular">
+                  {progress.completeLevels}/{progress.levels.length} levels
+                </span>
+              </span>
             </span>
-            <span className="inline-flex min-h-9 items-center rounded-full bg-surface px-3.5 text-subhead font-semibold shadow-card tabular">
-              {progress.percent}% complete
-            </span>
-          </div>
+            <ChevronRight className="size-5 shrink-0 text-label-3" aria-hidden />
+          </Link>
         </div>
       }
     >
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-7">
         {/* Next step */}
         <section aria-labelledby="next-step" className="relative">
-          <div className="relative overflow-hidden rounded-[2rem] bg-gold p-5 pt-6 text-ink sm:p-7">
+          <div className="relative overflow-hidden rounded-[1.6rem] bg-gold p-4 text-ink sm:p-6">
             <div className="topo-fill pointer-events-none absolute inset-0 text-ink/[0.07]" aria-hidden />
-            <Mascot pose="suitcase" mood="happy" className="pointer-events-none absolute -top-1 right-1 w-28 sm:w-36" />
-            <div className="relative flex flex-col gap-4 pr-24 sm:pr-36">
-              <div>
-                <p id="next-step" className="text-footnote font-semibold tracking-wide uppercase opacity-70">
-                  {t("journey.next")} · Level {progress.currentIndex + 1} of {progress.levels.length}
-                </p>
-                <p className="mt-1 text-headline font-semibold">{currentLevel.level.title}</p>
-              </div>
+            <Mascot pose="suitcase" mood="happy" className="pointer-events-none absolute -top-1 right-0 w-20 sm:w-28" />
+            <div className="relative flex flex-col gap-2.5 pr-20 sm:pr-28">
+              <p id="next-step" className="text-caption font-bold tracking-wide uppercase opacity-70">
+                {t("journey.next")} · {currentLevel.level.title} · {progress.currentIndex + 1}/{progress.levels.length}
+              </p>
               <ProgressDashes
                 total={currentLevel.total}
                 done={currentLevel.done}
                 current={currentLevel.done}
                 label={`${currentLevel.done} of ${currentLevel.total} tasks done in ${currentLevel.level.title}`}
-                className="[&>span]:bg-ink/15 [&>span.bg-teal]:bg-teal-ink [&>span.bg-malibu]:bg-white"
+                className="max-w-[12rem] [&>span]:bg-ink/15 [&>span.bg-teal]:bg-teal-ink [&>span.bg-malibu]:bg-white"
               />
             </div>
             {next ? (
-              <div className="relative mt-5 flex flex-col gap-4">
-                <h2 className="type-display text-title2 leading-tight">{next.task.title}</h2>
-                <p className="max-w-[34rem] text-callout opacity-80">{next.task.detail}</p>
-                <div className="flex flex-wrap gap-2.5">
-                  <Button variant="dark" icon={<Check className="size-5" aria-hidden />} onClick={() => completeTask(next.task)}>
+              <div className="relative mt-3 flex flex-col gap-2">
+                <h2 className="type-display pr-16 text-title3 leading-snug sm:pr-24 sm:text-title2">{next.task.title}</h2>
+                <p className="line-clamp-2 max-w-[34rem] text-subhead opacity-80">{next.task.detail}</p>
+                <div className="mt-1 flex gap-2">
+                  <Button size="sm" variant="dark" icon={<Check className="size-4" aria-hidden />} onClick={() => completeTask(next.task)}>
                     Mark done
                   </Button>
                   {next.task.link &&
                     ("to" in next.task.link ? (
-                      <ButtonLink to={next.task.link.to} variant="light" iconAfter={<ArrowRight className="size-5" aria-hidden />}>
-                        {next.task.link.label}
+                      <ButtonLink size="sm" to={next.task.link.to} variant="light" className="min-w-0" iconAfter={<ArrowRight className="size-4 shrink-0" aria-hidden />}>
+                        <span className="truncate">{next.task.link.label}</span>
                       </ButtonLink>
                     ) : (
                       <a
                         href={next.task.link.href}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex min-h-[3.25rem] items-center gap-2 rounded-full bg-white px-6 text-headline font-semibold text-ink hover:bg-white/90"
+                        className="inline-flex min-h-11 min-w-0 items-center gap-1.5 rounded-full bg-white px-4 text-subhead font-semibold text-ink hover:bg-white/90"
                       >
-                        {next.task.link.label}
-                        <ArrowUpRight className="size-5" aria-hidden />
+                        <span className="truncate">{next.task.link.label}</span>
+                        <ArrowUpRight className="size-4 shrink-0" aria-hidden />
                       </a>
                     ))}
                 </div>
               </div>
             ) : (
-              <div className="relative mt-5">
-                <h2 className="type-display text-title2">Every step done. Haere mai!</h2>
-                <p className="mt-2 text-callout opacity-80">"Haere mai" means welcome. Keep your records handy for your next visa.</p>
+              <div className="relative mt-3">
+                <h2 className="type-display text-title3">Every step done. Haere mai!</h2>
+                <p className="mt-1 text-subhead opacity-80">"Haere mai" means welcome. Keep your records handy for your next visa.</p>
               </div>
             )}
           </div>
         </section>
+
+        <QuickActions />
 
         <AiCoach />
 
@@ -353,5 +354,32 @@ function TimeAndMoney() {
         {rate.live ? "Live mid-market rate" : "Saved rate"} from {rate.asOf}. Banks and money transfer services add their own margin.
       </p>
     </section>
+  );
+}
+
+/** One-tap shortcuts to the tools people use most, sized for thumbs. */
+function QuickActions() {
+  const items = [
+    { to: "/assistant", label: "Ask AI", icon: Sparkles, tint: "pink" as const },
+    { to: "/tools/timeline", label: "Timeline", icon: CalendarRange, tint: "malibu" as const },
+    { to: "/tools/documents", label: "Documents", icon: Files, tint: "green" as const },
+    { to: "/tools/jobs", label: "Jobs", icon: Briefcase, tint: "lavender" as const },
+    { to: "/tools/cost-of-living", label: "Costs", icon: Landmark, tint: "gold" as const },
+  ];
+  return (
+    <nav aria-label="Shortcuts" className="-mx-4 sm:mx-0">
+      <ul className="no-scrollbar flex gap-2.5 overflow-x-auto px-4 sm:grid sm:grid-cols-5 sm:px-0">
+        {items.map((it) => (
+          <li key={it.to} className="shrink-0">
+            <Link to={it.to} className="flex w-[4.6rem] flex-col items-center gap-1.5 sm:w-full">
+              <span className={cn("grid size-14 place-items-center rounded-[1.1rem] shadow-card", TINT[it.tint].solid)}>
+                <it.icon className="size-6" aria-hidden />
+              </span>
+              <span className="text-caption font-semibold">{it.label}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }

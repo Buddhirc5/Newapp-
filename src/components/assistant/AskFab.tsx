@@ -25,10 +25,10 @@ export function AskFab() {
           setOpen(true);
         }}
         aria-label="Ask KiwiPath"
-        className="fixed right-4 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-40 inline-flex h-14 items-center gap-2 rounded-full bg-pink pr-5 pl-4 font-semibold text-ink shadow-float ring-4 ring-bg transition-transform active:scale-95 lg:right-8 lg:bottom-8"
+        className="fixed right-4 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-40 inline-flex size-14 items-center justify-center gap-2 rounded-full bg-pink font-semibold lg:w-auto lg:pr-5 lg:pl-4 text-ink shadow-float ring-4 ring-bg transition-transform active:scale-95 lg:right-8 lg:bottom-8"
       >
         <Sparkles className="size-5" aria-hidden />
-        <span className="text-callout">Ask</span>
+        <span className="hidden text-callout lg:inline">Ask</span>
         {a.busy && <span className="size-2 animate-pulse rounded-full bg-ink" aria-hidden />}
       </button>
 

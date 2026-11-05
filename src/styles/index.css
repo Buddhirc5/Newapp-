@@ -270,6 +270,22 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
+  /* Phones: a slightly tighter type scale so more fits on the first screen. */
+  @media (max-width: 430px) {
+    :root {
+      --text-hero: clamp(1.9rem, 8vw, 2.4rem);
+      --text-large-title: 1.75rem;
+      --text-title1: 1.5rem;
+      --text-title2: 1.25rem;
+      --text-title3: 1.125rem;
+      --text-headline: 1rem;
+      --text-body: 1rem;
+      --text-callout: 0.9375rem;
+      --text-subhead: 0.875rem;
+      --text-footnote: 0.78125rem;
+    }
+  }
+
   html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
