@@ -338,7 +338,7 @@ export function Panel({ title, sub, actions, children, className }: { title: str
 /** Pill segmented control in the admin style. */
 export function Pills<T extends string>({ value, onChange, options, label, dark }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[]; label: string; dark?: boolean }) {
   return (
-    <div role="radiogroup" aria-label={label} className={cn("inline-flex flex-wrap gap-1 rounded-full p-1", dark ? "bg-night" : "bg-surface shadow-card")}>
+    <div role="radiogroup" aria-label={label} className={cn("no-scrollbar inline-flex max-w-full gap-1 overflow-x-auto rounded-full p-1", dark ? "bg-night" : "bg-surface shadow-card")}>
       {options.map((o) => (
         <button
           key={o.value}
@@ -347,7 +347,7 @@ export function Pills<T extends string>({ value, onChange, options, label, dark 
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "min-h-9 rounded-full px-3.5 text-footnote font-bold transition-colors",
+            "min-h-9 shrink-0 rounded-full px-3 text-footnote font-bold whitespace-nowrap transition-colors",
             value === o.value ? (dark ? "bg-paper text-ink" : "bg-night text-paper") : dark ? "text-paper/75 hover:text-paper" : "text-label-2 hover:text-label",
           )}
         >

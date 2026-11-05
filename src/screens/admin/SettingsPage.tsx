@@ -107,7 +107,7 @@ export function SettingsPage() {
       </div>
 
       <Panel title="Appearance" sub="Light, dark, or match this device. Saved for your account.">
-        <ThemeToggle />
+        <ThemeToggle className="w-fit" />
       </Panel>
 
       <div className="grid gap-5 lg:grid-cols-3">

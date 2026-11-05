@@ -1,6 +1,18 @@
 @import "tailwindcss";
 @import "./fonts.css";
 
+/* `dark:` follows the theme chosen in the app (Light / Dark / Match device), not only the phone's setting. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
 /*
   KiwiPath design tokens.
   Layout: one app column (max 640px) with a floating capsule tab bar on phones;

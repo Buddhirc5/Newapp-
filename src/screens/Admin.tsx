@@ -366,7 +366,7 @@ function MfaCode({ factorId, onDone }: { factorId: string; onDone: () => void })
   );
 }
 
-function Console() {
+export function Console() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [community, setCommunity] = useState<"moderation" | "experts" | "agencies" | "news">("moderation");
   const user = useAuth((s) => s.user);
@@ -382,12 +382,12 @@ function Console() {
   return (
     <div className="min-h-dvh bg-bg pb-16">
       <header className="sticky top-0 z-30 px-3 pt-3 sm:px-5">
-        <div className="mx-auto flex max-w-[1500px] items-center gap-2 rounded-[1.6rem] bg-surface p-2 text-label shadow-float ring-1 ring-sep dark:bg-night-2">
-          <Link to="/" className="flex shrink-0 items-center gap-2 rounded-full py-1 pr-3 pl-2" aria-label="KiwiPath home">
+        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-2 rounded-[1.6rem] bg-surface p-2 md:flex-nowrap text-label shadow-float ring-1 ring-sep dark:bg-night-2">
+          <Link to="/" className="mr-auto flex shrink-0 items-center gap-2 rounded-full py-1 pr-3 pl-2 md:mr-0" aria-label="KiwiPath home">
             <Mascot className="size-8" pose="stand" animate={false} />
-            <span className="type-display hidden text-headline tracking-tight sm:inline">KIWIPATH</span>
+            <span className="type-display text-headline tracking-tight">KIWIPATH</span>
           </Link>
-          <nav aria-label="Admin sections" className="no-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto">
+          <nav aria-label="Admin sections" className="no-scrollbar order-last -mx-1 flex w-full min-w-0 gap-1 overflow-x-auto px-1 md:order-none md:mx-0 md:w-auto md:flex-1 md:px-0">
             {TABS.map((t) => (
               <button
                 key={t.id}
@@ -417,7 +417,7 @@ function Console() {
           >
             {full ? <Minimize2 className="size-4" aria-hidden /> : <Maximize2 className="size-4" aria-hidden />}
           </button>
-          <ThemeToggle className="hidden shrink-0 sm:inline-flex" />
+          <ThemeToggle className="shrink-0" />
           <Link to="/" className="hidden min-h-10 shrink-0 items-center rounded-full bg-night px-4 text-footnote font-bold text-paper md:inline-flex dark:bg-paper dark:text-ink">
             Member view
           </Link>
@@ -429,7 +429,7 @@ function Console() {
 
       <main className="mx-auto flex max-w-[1500px] flex-col gap-5 px-3 pt-6 sm:px-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <h1 className="type-display text-[clamp(2rem,5vw,3.2rem)] leading-none tracking-tight uppercase">{current.heading}</h1>
+          <h1 className="type-display text-[clamp(1.5rem,5vw,3.2rem)] leading-none tracking-tight uppercase">{current.heading}</h1>
           {tab === "community" && (
             <Pills
               label="Community section"

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FileDown, Search } from "lucide-react";
+import { FileDown, Search, BadgeCheck } from "lucide-react";
 import { Avatar } from "@/components/ui/Bits";
 import { Button } from "@/components/ui/Button";
 import { Select, Switch, TextField } from "@/components/ui/Controls";
@@ -184,17 +184,17 @@ export function Members() {
                     <td className="py-2.5 pr-3">
                       <div className="flex items-center gap-3">
                         <Avatar name={m.display_name} size={36} tint="lavender" />
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold">
-                            {m.display_name}
-                            {m.verified && <span className="ml-1.5 rounded-full bg-teal-soft px-1.5 py-0.5 text-caption font-bold text-teal-ink">Verified</span>}
+                        <div className="min-w-0 max-w-[10.5rem] sm:max-w-none">
+                          <p className="flex items-center gap-1 font-semibold">
+                            <span className="truncate">{m.display_name}</span>
+                            {m.verified && <BadgeCheck className="size-4 shrink-0 text-teal" aria-label="Verified" />}
                           </p>
                           <p className="truncate text-footnote text-label-2">{m.email}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-3 py-2.5">
-                      <span className={cn("rounded-full px-2.5 py-1 text-caption font-bold", PLAN_TONE[m.effective_plan])}>{PLAN_LABEL[m.effective_plan]}</span>
+                      <span className={cn("rounded-full px-2.5 py-1 text-caption font-bold whitespace-nowrap", PLAN_TONE[m.effective_plan])}>{PLAN_LABEL[m.effective_plan]}</span>
                       {m.plan_ends_at && (m.effective_plan === "pro" || m.effective_plan === "ultra") && (
                         <p className="mt-1 text-caption text-label-2">until {new Date(m.plan_ends_at).toLocaleDateString("en-NZ", { day: "numeric", month: "short" })}</p>
                       )}

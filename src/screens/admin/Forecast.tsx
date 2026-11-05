@@ -38,13 +38,15 @@ export function Forecast({ k, days }: { k: Analytics["kpis"]; days: number }) {
 
   return (
     <Panel title="Revenue forecast" sub="Next 12 months of monthly revenue. Adjust the assumptions to see what moves it." className="lg:col-span-3">
-      <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
-        <LineChart rows={rows} series={SERIES} label="Forecast monthly revenue" format={(n) => formatNumber(n)} />
-        <div className="flex flex-col gap-4">
+      <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0">
+          <LineChart rows={rows} series={SERIES} label="Forecast monthly revenue" format={(n) => formatNumber(n)} />
+        </div>
+        <div className="flex min-w-0 flex-col gap-4">
           <Assumption label="New members a month" value={signups} min={0} max={Math.max(500, monthlySignups * 3)} step={5} text={formatNumber(signups)} onChange={setSignups} />
           <Assumption label="Start paying after the free month" value={conv} min={0} max={50} step={1} text={`${conv}%`} onChange={setConv} />
           <Assumption label="Paying members who stop each month" value={churn} min={0} max={40} step={1} text={`${churn}%`} onChange={setChurn} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
             <Insight label="In 12 months" title="Monthly revenue" value={formatLkr(base[11]?.mrr ?? 0)} sub={`${formatNumber(base[11]?.paying ?? 0)} paying`} status="info" />
             <Insight label="Next 12 months" title="Total revenue" value={formatLkr(yearRevenue)} sub={`at ${formatLkr(arpu)} per payer`} status="good" />
           </div>
