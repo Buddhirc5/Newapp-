@@ -6,7 +6,10 @@ import { formatLkr, formatNumber } from "@/lib/format";
 import { downloadCsv, fetchAnalytics, PATH_LABEL, SITUATION_LABEL, STAGE_LABEL, type Analytics } from "./api";
 import { BarList, Insight, Kpi, LineChart, Panel, Pills, SegmentBar, toWeekly, type Row, type Series } from "./charts";
 
-export const RANGES = [
+export const PROVIDER_LABEL: Record<string, string> = { google: "Google", email: "Email code", apple: "Apple" };
+const SOURCE_LABEL: Record<string, string> = { facebook: "Facebook", whatsapp: "WhatsApp", google: "Google search", direct: "Direct / typed in", "Direct / unknown": "Before tracking", instagram: "Instagram", tiktok: "TikTok", share: "Shared page" };
+
+const RANGES = [
   { value: "1", label: "Today" },
   { value: "7", label: "7 days" },
   { value: "30", label: "30 days" },
@@ -221,6 +224,42 @@ export function Dashboard({ go }: { go: (tab: string) => void }) {
         </Panel>
         <Panel title="Top cities">
           {b ? <BarList items={Object.entries(b.city).map(([label, value]) => ({ label, value })).sort((a, z) => z.value - a.value)} /> : <Skeleton />}
+        </Panel>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-3">
+        <Panel title="How new members sign in" sub="Sign-ups in this range.">
+          {b ? (
+            <BarList
+              items={Object.entries(b.provider ?? {})
+                .map(([key, value]) => ({ label: PROVIDER_LABEL[key] ?? key, value }))
+                .sort((a, z) => z.value - a.value)}
+            />
+          ) : (
+            <Skeleton />
+          )}
+        </Panel>
+        <Panel title="Where sign-ups come from" sub="First link they arrived from: utm_source, Facebook, WhatsApp, Google.">
+          {b ? (
+            Object.keys(b.source ?? {}).length ? (
+              <BarList items={Object.entries(b.source ?? {}).map(([label, value]) => ({ label: SOURCE_LABEL[label] ?? label, value })).sort((a, z) => z.value - a.value)} />
+            ) : (
+              <p className="text-subhead text-label-2">No sign-ups with a source yet. New members are tracked from now on.</p>
+            )
+          ) : (
+            <Skeleton />
+          )}
+        </Panel>
+        <Panel title="Best posts and campaigns" sub="From utm_campaign in your links, e.g. group1.">
+          {b ? (
+            Object.keys(b.campaign ?? {}).length ? (
+              <BarList items={Object.entries(b.campaign ?? {}).map(([label, value]) => ({ label, value })).sort((a, z) => z.value - a.value)} />
+            ) : (
+              <p className="text-subhead text-label-2">Add ?utm_campaign=group1 to your links to compare posts.</p>
+            )
+          ) : (
+            <Skeleton />
+          )}
         </Panel>
       </div>
     </div>

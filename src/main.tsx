@@ -6,8 +6,10 @@ import { IS_PREVIEW } from "@/lib/env";
 import { useApp } from "@/store/app";
 import { startMonitoring } from "@/lib/monitor";
 import { inject } from "@vercel/analytics";
+import { captureFirstTouch } from "@/lib/attribution";
 
 startMonitoring();
+captureFirstTouch();
 // Privacy-friendly visit counts (no cookies): shows where visitors come from, e.g. Facebook groups.
 if (!IS_PREVIEW && import.meta.env.PROD) inject();
 

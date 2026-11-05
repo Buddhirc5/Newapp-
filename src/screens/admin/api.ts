@@ -53,7 +53,7 @@ export interface Analytics {
     listings: number;
     messages: number;
   })[];
-  breakdown: Record<"stage" | "situation" | "path" | "plan" | "city" | "ai_kind" | "ai_model", Record<string, number>>;
+  breakdown: Record<"stage" | "situation" | "path" | "plan" | "city" | "ai_kind" | "ai_model", Record<string, number>> & Partial<Record<"provider" | "source" | "campaign", Record<string, number>>>;
   top_ai_users: { id: string; name: string; email: string | null; plan: string; uses: number }[];
   funnel: { step: string; n: number }[];
 }
@@ -89,6 +89,9 @@ export interface Member {
   listings: number;
   bookings: number;
   paid_lkr: number;
+  provider?: string;
+  signup_source?: string | null;
+  signup_campaign?: string | null;
 }
 
 export async function fetchMembers(search = ""): Promise<Member[]> {
@@ -171,7 +174,7 @@ export const STAGE_LABEL: Record<string, string> = {
 };
 export const SITUATION_LABEL: Record<string, string> = { in_lk: "In Sri Lanka", in_nz: "In New Zealand", elsewhere: "Elsewhere" };
 export const PATH_LABEL: Record<string, string> = { student: "Student", worker: "Skilled worker", registered: "Registered professional", family: "Partner & family", business: "Business" };
-export const AI_KIND_LABEL: Record<string, string> = { document: "Document check", cv: "CV polish", sop: "SOP draft", journey: "Journey coach", batch: "Nightly review" };
+export const AI_KIND_LABEL: Record<string, string> = { document: "Document check", cv: "CV polish", sop: "SOP draft", journey: "Journey coach", chat: "Ask KiwiPath chat", batch: "Nightly review" };
 
 /** Rough cost per AI use (USD), for planning only: low effort, typical sizes. */
 export const AI_COST_USD: Record<string, number> = { haiku: 0.002, sonnet: 0.04, batch: 0.001 };

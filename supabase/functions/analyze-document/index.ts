@@ -3,7 +3,7 @@
 // Requires the ANTHROPIC_API_KEY secret, the ai_enabled setting and a plan with AI uses left today.
 // Runs on Claude Haiku 5.5 (low effort); retries once on Sonnet 5.5 (low effort)
 // if Haiku fails or can't read the document.
-import { AiError, generate, json, limitReached, member, reserve, settle, withCors } from "./ai.ts";
+import { AiError, budgetReached, generate, json, limitReached, member, reserve, settle, withCors } from "./ai.ts";
 import { sniff } from "./sniff.ts";
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -98,6 +98,7 @@ Deno.serve(withCors(async (req) => {
 
   const reservation = await reserve(m.service, m.userId, "document").catch(() => null);
   if (reservation === null) return limitReached(m.quota);
+  if (reservation === -1) return budgetReached();
   let model: string | null = null;
 
   try {

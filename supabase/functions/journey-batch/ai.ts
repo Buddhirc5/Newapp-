@@ -51,6 +51,8 @@ export async function member(req: Request): Promise<
       res: json({ error: `You've used today's ${q.limit} AI requests.${q.plan === "ultra" ? "" : " Ultra gives you more each day."}`, upgrade: q.plan !== "ultra" }, 429),
     };
   }
+  const { count: flags } = await service.from("ai_flags").select("id", { count: "exact", head: true }).eq("user_id", auth.user.id).gte("created_at", new Date(Date.now() - 86_400_000).toISOString());
+  if ((flags ?? 0) >= 5) return { ok: false, res: json({ error: "AI help is paused on your account for today. Ask about moving to or living in New Zealand." }, 429) };
   return { ok: true, userId: auth.user.id, quota: q, service };
 }
 
@@ -70,6 +72,35 @@ export async function reserve(service: Service, userId: string, kind: string): P
 export async function settle(service: Service, id: number, model: string | null) {
   if (model) await service.from("ai_usage").update({ status: "done", model }).eq("id", id);
   else await service.from("ai_usage").delete().eq("id", id);
+}
+
+/** KiwiPath's whole-app daily AI budget is used up (reserve returned -1). */
+export const budgetReached = () => json({ error: "KiwiPath's AI has reached its limit for today. Try again tomorrow." }, 503);
+
+const MISUSE: [string, RegExp][] = [
+  ["prompt-injection", /\b(ignore|disregard|forget|override)\b.{0,40}\b(previous|prior|above|earlier|all|your|the)\b.{0,30}\b(instructions?|rules?|prompts?|guidelines?|messages?)\b/i],
+  ["prompt-extraction", /\b(reveal|show|print|repeat|tell me|what is|what's)\b.{0,30}\b(system|developer|hidden|initial|original)\s+(prompt|instructions?|message)\b/i],
+  ["jailbreak", /\b(jailbreak|do anything now|dan mode|developer mode|no restrictions|unfiltered mode|without (any )?(rules|restrictions|filters))\b/i],
+  ["role-hijack", /\b(you are now|from now on you are|act as|pretend (to be|you are))\b.{0,40}\b(unrestricted|evil|hacker|different (ai|assistant|model)|chatgpt|gpt|gemini)\b/i],
+  ["harmful", /\b(malware|ransomware|keylogger|phishing (kit|page|email)|fake (passport|visa|bank statement|documents?|degree|certificate)|forge|counterfeit)\b/i],
+  ["spam", /(.)\1{40,}|(\b\w+\b)(\s+\2\b){15,}/i],
+];
+
+/** Returns why a message looks like an attempt to misuse the AI, or null. */
+export function misuse(text: string): string | null {
+  for (const [reason, re] of MISUSE) if (re.test(text)) return reason;
+  return null;
+}
+
+/**
+ * Records a misuse attempt and returns the response to send. After 5 attempts
+ * in a day the member's AI is paused until tomorrow.
+ */
+export async function flagMisuse(service: Service, userId: string, reason: string, sample: string): Promise<Response> {
+  await service.from("ai_flags").insert({ user_id: userId, reason, sample: sample.slice(0, 300) });
+  const { count } = await service.from("ai_flags").select("id", { count: "exact", head: true }).eq("user_id", userId).gte("created_at", new Date(Date.now() - 86_400_000).toISOString());
+  if ((count ?? 0) >= 5) return json({ error: "AI help is paused on your account for today. Ask about moving to or living in New Zealand." }, 429);
+  return json({ error: "I can only help with moving to, studying, working and living in New Zealand." }, 400);
 }
 
 export const limitReached = (q: Quota) =>

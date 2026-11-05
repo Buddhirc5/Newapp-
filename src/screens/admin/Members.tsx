@@ -101,6 +101,9 @@ export function Members() {
                   name: m.display_name,
                   email: m.email,
                   package: PLAN_LABEL[m.effective_plan],
+                  sign_in: m.provider ?? "",
+                  source: m.signup_source ?? "",
+                  campaign: m.signup_campaign ?? "",
                   package_until: m.plan_ends_at,
                   stage: STAGE_LABEL[m.stage] ?? m.stage,
                   path: PATH_LABEL[m.path] ?? m.path,
@@ -190,6 +193,10 @@ export function Members() {
                             {m.verified && <BadgeCheck className="size-4 shrink-0 text-teal" aria-label="Verified" />}
                           </p>
                           <p className="truncate text-footnote text-label-2">{m.email}</p>
+                          <p className="truncate text-caption text-label-3">
+                            {m.provider === "google" ? "Google" : "Email code"}
+                            {m.signup_source ? ` · from ${m.signup_source}${m.signup_campaign ? ` (${m.signup_campaign})` : ""}` : ""}
+                          </p>
                         </div>
                       </div>
                     </td>

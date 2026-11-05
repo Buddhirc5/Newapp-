@@ -39,6 +39,8 @@ const GROUPS: { title: string; sub: string; fields: Field[] }[] = [
       { key: "ai_daily_limit_trial", label: "Free month limit", help: "AI requests per member per day", unit: "per day", min: 0, max: 500 },
       { key: "ai_daily_limit_pro", label: "Main limit", help: "AI requests per member per day", unit: "per day", min: 0, max: 500 },
       { key: "ai_daily_limit_ultra", label: "Ultra limit", help: "AI requests per member per day", unit: "per day", min: 0, max: 500 },
+      { key: "ai_daily_limit_free", label: "After the free month", help: "Free AI requests a day for members who haven't paid", unit: "per day", min: 0, max: 500 },
+      { key: "ai_daily_budget_usd", label: "Daily AI spending cap", help: "AI pauses for everyone once today's estimated spend reaches this", unit: "US$", min: 0, max: 200 },
     ],
   },
   {

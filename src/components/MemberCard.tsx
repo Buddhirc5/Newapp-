@@ -74,7 +74,7 @@ export function MemberCard() {
       <ul className="overflow-hidden rounded-tile bg-surface shadow-card">
         <Row to="/board" icon={<Store className="size-5" aria-hidden />} tint="teal" title="My listings" value={String(mine.filter((l) => l.status === "active").length)} />
         <Row to="/chats" icon={<MessageCircle className="size-5" aria-hidden />} tint="lavender" title="Messages" />
-        {isAdmin && <Row to="/admin" icon={<Shield className="size-5" aria-hidden />} tint="coral" title="Moderation" />}
+        {isAdmin && <Row to="/admin" icon={<Shield className="size-5" aria-hidden />} tint="coral" title="Admin console" />}
       </ul>
       {profile && <ProfileSheet open={editing} onClose={() => setEditing(false)} profile={profile} />}
     </section>

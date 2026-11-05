@@ -24,6 +24,7 @@ import { signOut, useAuth } from "@/lib/sync";
 import { SignInSheet } from "@/components/SignInSheet";
 import { MemberCard } from "@/components/MemberCard";
 import { MyReceipts } from "@/components/MyReceipts";
+import { useCanInstall, useInstallAction } from "@/components/InstallApp";
 import { BADGES, currentStreak, journeyProgress, totalPoints } from "@/logic/progress";
 import { pickData, useApp } from "@/store/app";
 import type { Lang, Profile, ThemePref } from "@/types";
@@ -324,6 +325,7 @@ export function Me() {
             title="Not immigration advice"
             subtitle="KiwiPath summarises public information. For advice on your situation, talk to a licensed immigration adviser."
           />
+          <InstallRow />
           <ListRow
             icon={
               <IconTile tint="teal">
@@ -506,5 +508,28 @@ function DeleteAccountSheet({ open, onClose, onDeleted }: { open: boolean; onClo
         <TextField label="Type DELETE to confirm" autoComplete="off" value={typed} onChange={(e) => setTyped(e.target.value.trim())} />
       </div>
     </Sheet>
+  );
+}
+
+/** "Install KiwiPath" row, shown only where installing is possible. */
+function InstallRow() {
+  const can = useCanInstall();
+  const { run, sheet } = useInstallAction();
+  if (!can) return sheet;
+  return (
+    <>
+      <ListRow
+        icon={
+          <IconTile tint="green">
+            <Download className="size-5" aria-hidden />
+          </IconTile>
+        }
+        title="Install KiwiPath"
+        subtitle="Add it to your home screen like an app"
+        accessory="chevron"
+        onClick={() => void run()}
+      />
+      {sheet}
+    </>
   );
 }

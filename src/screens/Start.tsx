@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/sync";
 import { useApp } from "@/store/app";
 import type { CityId, PathId } from "@/types";
 import { CITIES } from "@/data/places";
+import { saveSignupSource } from "@/lib/attribution";
 
 type Situation = MemberProfile["situation"];
 type Stage = MemberProfile["stage"];
@@ -102,6 +103,7 @@ export function Start() {
       });
       const slugs = [city, PATH_GROUP[path], ...interests.map((i) => INTEREST_GROUP[i])].filter(Boolean) as string[];
       await joinGroupsBySlug(slugs).catch(() => undefined);
+      await saveSignupSource();
       // Keep the on-device journey in step with the account.
       local.completeOnboarding({ ...local.profile, name: name.trim(), city, goal: path === "student" ? "study" : path === "family" ? "family" : path === "business" ? "business" : "work" }, { at: new Date().toISOString(), ranking: [] }, path);
       await loadMember();

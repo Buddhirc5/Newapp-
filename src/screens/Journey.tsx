@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AiCoach } from "@/components/AiCoach";
+import { InstallCard } from "@/components/InstallApp";
 import { Link } from "react-router";
 import { ArrowRight, ArrowUpRight, Briefcase, CalendarRange, Check, ChevronRight, Files, Flame, Landmark, MapPin, Plane, Sparkles } from "lucide-react";
 import { ICONS } from "@/components/icons";
@@ -139,6 +140,8 @@ export function Journey() {
         </section>
 
         <QuickActions />
+
+        <InstallCard />
 
         <AiCoach />
 
