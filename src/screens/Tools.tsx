@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { ArrowRight, BookOpen, Building2, Compass, FileText, PenLine, PiggyBank, Files, Mic, School, Search, ShieldCheck, Sparkles, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowRight, BadgeCheck, BookOpen, Building2, Compass, FileText, PenLine, PiggyBank, Files, Mic, ScanText, School, Search, ShieldCheck, Sparkles, Wallet, type LucideIcon } from "lucide-react";
 import { Page } from "@/components/layout/Page";
 import { Mascot, Sparkle, type Mood, type Pose } from "@/components/Mascot";
 import { TINT } from "@/components/tints";
@@ -30,6 +30,8 @@ export const TOOLS: ToolInfo[] = [
 ];
 
 const MORE = [
+  { to: "/tools/doc-check", title: "Document Check", desc: "Upload a document, get a fix-it checklist", tint: "lavender" as Tint, icon: ScanText },
+  { to: "/experts", title: "Experts", desc: "Book lawyers, advisers and mentors", tint: "coral" as Tint, icon: BadgeCheck },
   { to: "/guides", title: "Guides", desc: "Funds, relationship proof, experience letters, SOPs", tint: "gold" as Tint, icon: BookOpen },
   { to: "/tools/sop", title: "SOP Builder", desc: "Draft and check your statement of purpose", tint: "pink" as Tint, icon: PenLine },
   { to: "/tools/savings", title: "Loan & Savings", desc: "Cover installments at home and save faster", tint: "teal" as Tint, icon: PiggyBank },

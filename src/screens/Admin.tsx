@@ -26,21 +26,27 @@ import { mfaState, startEnrolment, verifyCode, type MfaState } from "@/lib/admin
 import { cn } from "@/lib/cn";
 import {
   adminMembers,
+  adminOrders,
   adminStats,
   adminUpdateMember,
   fetchAgencies,
   fetchHiddenListings,
   fetchOpenReports,
   fetchPayments,
+  fetchPendingApplications,
   fetchSettings,
   loadMember,
   refreshNews,
   resolveReports,
   reviewAgency,
+  reviewApplication,
+  setOrderStatus,
   saveSetting,
   useMember,
   type AdminMember,
   type Agency,
+  type GigOrder,
+  type ProviderApplication,
   type PaymentRow,
   type ReportRow,
   type Setting,
@@ -49,13 +55,14 @@ import { HAS_SUPABASE } from "@/lib/env";
 import { formatNumber, relativeDay } from "@/lib/format";
 import { signInWithGoogle, signInWithPassword, useAuth, useGoogleEnabled } from "@/lib/sync";
 
-type Tab = "overview" | "members" | "moderation" | "agencies" | "payments" | "settings";
+type Tab = "overview" | "members" | "moderation" | "agencies" | "experts" | "payments" | "settings";
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "members", label: "Members", icon: Users },
   { id: "moderation", label: "Moderation", icon: Flag },
   { id: "agencies", label: "Agencies", icon: Building2 },
+  { id: "experts", label: "Experts", icon: BadgeCheck },
   { id: "payments", label: "Payments", icon: CreditCard },
   { id: "settings", label: "Settings", icon: Settings },
 ];
@@ -203,6 +210,7 @@ function Console({ mfa, onEnrolled }: { mfa: MfaState; onEnrolled: () => void })
         {tab === "members" && <Members />}
         {tab === "moderation" && <Moderation />}
         {tab === "agencies" && <AgencyReview />}
+        {tab === "experts" && <ExpertsAdmin />}
         {tab === "payments" && <Payments />}
         {tab === "settings" && <SettingsPanel />}
       </div>
@@ -277,6 +285,9 @@ function Overview() {
     { label: "Active listings", value: n("listings"), sub: `${n("hidden")} hidden` },
     { label: "Open reports", value: n("open_reports"), sub: `${n("pending_agencies")} agencies to review` },
     { label: "Group messages", value: n("messages_7d"), sub: "last 7 days" },
+    { label: "Live sessions", value: n("gigs"), sub: `${n("pending_providers")} providers to verify` },
+    { label: "Bookings", value: n("bookings_30d"), sub: "last 30 days" },
+    { label: "Document checks", value: n("ai_checks_7d"), sub: "last 7 days" },
   ];
   return (
     <div className="flex flex-col gap-5">
@@ -586,6 +597,76 @@ function AgencyReview() {
           </div>
         </Card>
       ))}
+    </div>
+  );
+}
+
+function ExpertsAdmin() {
+  const [apps, setApps] = useState<ProviderApplication[] | null>(null);
+  const [orders, setOrders] = useState<GigOrder[]>([]);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const load = useCallback(() => {
+    fetchPendingApplications().then(setApps, () => setApps([]));
+    adminOrders().then(setOrders, () => undefined);
+  }, []);
+  useEffect(load, [load]);
+  if (!apps) return <div className="h-40 animate-pulse rounded-card bg-fill-2" />;
+  const review = (id: string, status: "approved" | "rejected") =>
+    reviewApplication(id, status, notes[id] ?? "").then(() => (toast(status === "approved" ? "Provider verified" : "Application rejected"), load()), (e: Error) => toast(e.message, "warn"));
+  return (
+    <div className="flex flex-col gap-6">
+      <section className="flex flex-col gap-3" aria-labelledby="apps">
+        <SectionHeader id="apps" title="Provider applications" />
+        {apps.length === 0 && <p className="px-1 text-subhead text-label-2">No applications waiting.</p>}
+        {apps.map((a) => (
+          <Card key={a.id} className="flex flex-col gap-3 p-4">
+            <div>
+              <p className="text-headline font-semibold">{a.full_name}</p>
+              <p className="text-footnote text-label-2">
+                {a.kind} · {a.licence_body || "no issuer"} · {a.licence_number || "no number"} · {relativeDay(a.created_at)}
+              </p>
+              {a.website && (
+                <a href={a.website} target="_blank" rel="noreferrer" className="text-footnote text-teal-ink underline">
+                  {a.website}
+                </a>
+              )}
+            </div>
+            {a.bio && <p className="text-subhead">{a.bio}</p>}
+            <Notice>Check the licence on the public register (for example the IAA adviser register or the NZ Law Society) before approving.</Notice>
+            <TextField label="Note to applicant" value={notes[a.id] ?? ""} onChange={(e) => setNotes({ ...notes, [a.id]: e.target.value })} />
+            <div className="grid grid-cols-2 gap-2">
+              <Button size="md" onClick={() => review(a.id, "approved")}>
+                Approve
+              </Button>
+              <Button size="md" variant="destructive" onClick={() => review(a.id, "rejected")}>
+                Reject
+              </Button>
+            </div>
+          </Card>
+        ))}
+      </section>
+      <section className="flex flex-col gap-3" aria-labelledby="orders">
+        <SectionHeader id="orders" title="Recent bookings" />
+        {orders.length === 0 && <p className="px-1 text-subhead text-label-2">No bookings yet.</p>}
+        {orders.map((o) => (
+          <Card key={o.id} className="flex flex-wrap items-center gap-3 p-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-callout font-semibold">{o.gig?.title ?? "Session"}</p>
+              <p className="text-footnote text-label-2">
+                {o.buyer?.display_name ?? "Member"} → {o.provider?.display_name ?? "Provider"} · Rs {formatNumber(o.amount_lkr)} (fee Rs {formatNumber(o.platform_fee_lkr)}) · {relativeDay(o.created_at)}
+              </p>
+            </div>
+            <Tag tint={o.status === "paid" || o.status === "completed" ? "green" : o.status === "accepted" ? "gold" : "malibu"} solid={false} className="text-caption">
+              {o.status}
+            </Tag>
+            {o.status === "accepted" && o.amount_lkr > 0 && (
+              <Button size="sm" onClick={() => setOrderStatus(o.id, "paid").then(() => (toast("Marked paid"), load()), (e: Error) => toast(e.message, "warn"))}>
+                Mark paid
+              </Button>
+            )}
+          </Card>
+        ))}
+      </section>
     </div>
   );
 }

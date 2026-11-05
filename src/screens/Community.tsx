@@ -6,6 +6,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { SegmentedControl, TextArea, TextField } from "@/components/ui/Controls";
 import { AlertDialog, Sheet } from "@/components/ui/Sheet";
 import { toast } from "@/components/ui/Toast";
+import { ExpertsList } from "@/screens/Experts";
 import { MENTOR_HOURS_NZ, SAMPLE_MENTORS, type Mentor } from "@/data/mentors";
 import { cn } from "@/lib/cn";
 import { datePartsIn, dayIn, formatLkr, relativeDay, timeIn, zonedTime, ZONES } from "@/lib/format";
@@ -59,9 +60,20 @@ export function Community() {
         <ButtonLink to="/groups" variant="dark" icon={<Users className="size-5" aria-hidden />}>
           Your groups: chat and meetups
         </ButtonLink>
-        {tab === "news" ? <News /> : tab === "mentors" ? <Mentors /> : <Alerts />}
+        {tab === "news" ? <News /> : tab === "mentors" ? HAS_SUPABASE ? <LiveMentors /> : <Mentors /> : <Alerts />}
       </div>
     </Page>
+  );
+}
+
+function LiveMentors() {
+  return (
+    <div className="flex flex-col gap-4">
+      <ButtonLink to="/experts/manage" variant="tinted">
+        My sessions and bookings
+      </ButtonLink>
+      <ExpertsList />
+    </div>
   );
 }
 

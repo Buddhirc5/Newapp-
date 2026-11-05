@@ -554,3 +554,180 @@ export async function fetchPayments(): Promise<PaymentRow[]> {
   if (error) throw error;
   return (data ?? []) as PaymentRow[];
 }
+
+// ── Gigs, bookings and providers ─────────────────────────────────────────
+
+export type GigCategory = "visa" | "legal" | "education" | "career" | "settling" | "mentoring";
+
+export interface Gig {
+  id: string;
+  provider_id: string;
+  category: GigCategory;
+  title: string;
+  description: string;
+  price_lkr: number;
+  duration_min: number;
+  mode: "video" | "chat" | "in_person";
+  active: boolean;
+  created_at: string;
+  provider?: { display_name: string; verified: boolean; role: string; city: string; bio: string } | null;
+}
+
+export interface GigOrder {
+  id: string;
+  gig_id: string;
+  buyer_id: string;
+  provider_id: string | null;
+  slot: string;
+  note: string;
+  amount_lkr: number;
+  platform_fee_lkr: number;
+  meeting_link: string | null;
+  status: "requested" | "accepted" | "declined" | "paid" | "completed" | "cancelled";
+  created_at: string;
+  gig?: { title: string; duration_min: number; mode: string } | null;
+  buyer?: { display_name: string } | null;
+  provider?: { display_name: string } | null;
+}
+
+const GIG_FIELDS = "*, provider:profiles(display_name, verified, role, city, bio)";
+
+export async function fetchGigs(category: GigCategory | "all" = "all"): Promise<Gig[]> {
+  const sb = await client();
+  let q = sb.from("gigs").select(GIG_FIELDS).eq("active", true).order("created_at", { ascending: false }).limit(100);
+  if (category !== "all") q = q.eq("category", category);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as unknown as Gig[];
+}
+
+export async function fetchGig(id: string): Promise<Gig | null> {
+  const sb = await client();
+  const { data } = await sb.from("gigs").select(GIG_FIELDS).eq("id", id).maybeSingle();
+  return (data as unknown as Gig) ?? null;
+}
+
+export async function fetchMyGigs(): Promise<Gig[]> {
+  const sb = await client();
+  const user = requireUser();
+  const { data, error } = await sb.from("gigs").select(GIG_FIELDS).eq("provider_id", user.id).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as Gig[];
+}
+
+export async function saveGig(gig: Pick<Gig, "category" | "title" | "description" | "price_lkr" | "duration_min" | "mode"> & { id?: string; active?: boolean }): Promise<void> {
+  const sb = await client();
+  const user = requireUser();
+  const { id, ...rest } = gig;
+  const { error } = id ? await sb.from("gigs").update(rest).eq("id", id) : await sb.from("gigs").insert({ ...rest, provider_id: user.id });
+  if (error) throw new Error(/row-level security/i.test(error.message) ? "Visa and legal sessions are for verified providers. Apply below to get verified." : error.message);
+}
+
+export async function bookGig(gigId: string, slotIso: string, note: string): Promise<void> {
+  const sb = await client();
+  const user = requireUser();
+  const { error } = await sb.from("gig_orders").insert({ gig_id: gigId, buyer_id: user.id, slot: slotIso, note });
+  if (error) throw error;
+}
+
+const ORDER_FIELDS = "*, gig:gigs(title, duration_min, mode), buyer:profiles!gig_orders_buyer_id_fkey(display_name), provider:profiles!gig_orders_provider_id_fkey(display_name)";
+
+export async function fetchMyOrders(): Promise<{ buying: GigOrder[]; selling: GigOrder[] }> {
+  const sb = await client();
+  const user = requireUser();
+  const { data, error } = await sb.from("gig_orders").select(ORDER_FIELDS).order("slot", { ascending: true }).limit(200);
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as GigOrder[];
+  return { buying: rows.filter((r) => r.buyer_id === user.id), selling: rows.filter((r) => r.provider_id === user.id) };
+}
+
+export async function adminOrders(): Promise<GigOrder[]> {
+  const sb = await client();
+  const { data, error } = await sb.from("gig_orders").select(ORDER_FIELDS).order("created_at", { ascending: false }).limit(100);
+  if (error) throw error;
+  return (data ?? []) as unknown as GigOrder[];
+}
+
+export async function setOrderStatus(id: string, status: GigOrder["status"]): Promise<void> {
+  const sb = await client();
+  const { error } = await sb.from("gig_orders").update({ status }).eq("id", id);
+  if (error) throw error;
+}
+
+export interface ProviderApplication {
+  id: string;
+  user_id: string;
+  kind: "lawyer" | "adviser" | "consultant" | "agent";
+  full_name: string;
+  licence_number: string;
+  licence_body: string;
+  website: string | null;
+  bio: string;
+  status: "pending" | "approved" | "rejected";
+  review_note: string;
+  created_at: string;
+}
+
+export async function applyAsProvider(app: Pick<ProviderApplication, "kind" | "full_name" | "licence_number" | "licence_body" | "website" | "bio">): Promise<void> {
+  const sb = await client();
+  const user = requireUser();
+  const { error } = await sb.from("provider_applications").insert({ ...app, user_id: user.id });
+  if (error) throw error;
+}
+
+export async function fetchMyApplications(): Promise<ProviderApplication[]> {
+  const sb = await client();
+  const { data } = await sb.from("provider_applications").select("*").order("created_at", { ascending: false });
+  return (data ?? []) as ProviderApplication[];
+}
+
+export async function fetchPendingApplications(): Promise<ProviderApplication[]> {
+  const sb = await client();
+  const { data, error } = await sb.from("provider_applications").select("*").eq("status", "pending").order("created_at");
+  if (error) throw error;
+  return (data ?? []) as ProviderApplication[];
+}
+
+export async function reviewApplication(id: string, status: "approved" | "rejected", note: string): Promise<void> {
+  const sb = await client();
+  const { error } = await sb.from("provider_applications").update({ status, review_note: note }).eq("id", id);
+  if (error) throw error;
+}
+
+// ── AI document checks ───────────────────────────────────────────────────
+
+export interface DocReview {
+  document_type: string;
+  readable: boolean;
+  summary: string;
+  fields: { label: string; value: string }[];
+  issues: { severity: "fix" | "improve" | "ok"; title: string; detail: string }[];
+  next_steps: string[];
+}
+
+export async function aiChecksEnabled(): Promise<boolean> {
+  const sb = await client();
+  const { data } = await sb.from("app_settings").select("value").eq("key", "ai_enabled").maybeSingle();
+  return data?.value === true;
+}
+
+export async function analyzeDocument(file: File, docType: string): Promise<{ result: DocReview; remaining: number }> {
+  const sb = await client();
+  const user = requireUser();
+  const ext = file.type === "application/pdf" ? "pdf" : file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  const path = `${user.id}/check-${crypto.randomUUID()}.${ext}`;
+  const { error: upErr } = await sb.storage.from("documents").upload(path, file, { contentType: file.type || "image/jpeg" });
+  if (upErr) throw upErr;
+  const { data, error } = await sb.functions.invoke("analyze-document", { body: { path, docType, fileName: file.name } });
+  if (error) {
+    const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
+    throw new Error((body as { error?: string } | null)?.error ?? "The check couldn't run. Try again.");
+  }
+  return data as { result: DocReview; remaining: number };
+}
+
+export async function fetchDocReviews(): Promise<{ id: string; doc_type: string; file_name: string; result: DocReview; created_at: string }[]> {
+  const sb = await client();
+  const { data } = await sb.from("document_reviews").select("*").order("created_at", { ascending: false }).limit(20);
+  return (data ?? []) as { id: string; doc_type: string; file_name: string; result: DocReview; created_at: string }[];
+}
