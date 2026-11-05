@@ -58,7 +58,7 @@ export function Terms() {
             </ul>
           </Card>
         ))}
-        <Notice>These terms are governed by the laws of Sri Lanka. Last updated November 2026.</Notice>
+        <Notice>These terms are governed by the laws of Sri Lanka. Questions: buddhirc5@gmail.com. Last updated November 2026.</Notice>
       </div>
     </Page>
   );
