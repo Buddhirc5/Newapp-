@@ -194,5 +194,30 @@ await db.exec(`insert into auth.users (id, email) values ('${F}', 'f@example.com
 check("new members get the admin-set trial length", (await db.query("select trial_ends_at < now() + interval '15 days' as ok from public.profiles where id = $1", [F])).rows[0].ok);
 check("members can't see others' payments", (await as(B, () => db.query("select id from public.payments"))).rows.length === 0);
 
+// ── Phase 3: gigs, bookings, providers, AI usage ──
+await db.exec("delete from public.admins;");
+const G = "77777777-7777-4777-8777-777777777777";
+await db.exec(`insert into auth.users (id, email) values ('${G}', 'g@example.com');`);
+check("unverified members can't offer visa advice", await as(G, () => fails(() => db.query("insert into public.gigs (category, title, description, price_lkr) values ('visa', 'Visa consultation', 'I will review your student visa application in detail.', 10000)"))));
+const mentorGig = (await as(G, () => db.query("insert into public.gigs (category, title, description, price_lkr) values ('mentoring', 'Life as a nurse in Auckland', 'Thirty minutes on registration, shifts and finding a flat.', 5000) returning id"))).rows[0].id;
+check("members can offer mentoring sessions", Boolean(mentorGig));
+const order = (await as(B, () => db.query("insert into public.gig_orders (gig_id, slot, amount_lkr, platform_fee_lkr, status) values ($1, now() + interval '2 days', 1, 0, 'paid') returning id, amount_lkr, platform_fee_lkr, status, provider_id", [mentorGig]))).rows[0];
+check("price, fee and status come from the database", order.amount_lkr === 5000 && order.platform_fee_lkr === 1000 && order.status === "requested" && order.provider_id === G);
+check("members can't book their own gig", await as(G, () => fails(() => db.query("insert into public.gig_orders (gig_id, slot) values ($1, now() + interval '2 days')", [mentorGig]))));
+check("buyers can't mark a booking paid", await as(B, () => fails(() => db.query("update public.gig_orders set status = 'paid' where id = $1", [order.id]))));
+check("buyers can't change the price", await as(B, () => fails(() => db.query("update public.gig_orders set amount_lkr = 10 where id = $1", [order.id]))));
+await as(G, () => db.query("update public.gig_orders set status = 'accepted' where id = $1", [order.id]));
+check("providers accept bookings", (await db.query("select status from public.gig_orders where id = $1", [order.id])).rows[0].status === "accepted");
+check("providers can't complete an unpaid paid session", await as(G, () => fails(() => db.query("update public.gig_orders set status = 'completed' where id = $1", [order.id]))));
+check("outsiders can't see a booking", (await as(C, () => db.query("select id from public.gig_orders"))).rows.length === 0);
+await as(G, () => db.query("insert into public.provider_applications (kind, full_name, licence_number, licence_body) values ('adviser', 'Test Adviser', '201900123', 'Immigration Advisers Authority')"));
+check("applicants can't approve themselves", (await as(G, () => db.query("update public.provider_applications set status = 'approved' returning id"))).rows.length === 0);
+await db.exec(`insert into public.admins (user_id) values ('${D}');`);
+await as(D, () => db.query("update public.provider_applications set status = 'approved' where user_id = $1", [G]));
+check("approval makes a verified provider", (await db.query("select role, verified from public.profiles where id = $1", [G])).rows[0].verified === true);
+check("verified providers can offer visa advice", !(await as(G, () => fails(() => db.query("insert into public.gigs (category, title, description, price_lkr) values ('visa', 'Visa consultation', 'I will review your student visa application in detail.', 10000)")))));
+check("members can't write AI usage", await as(B, () => fails(() => db.query("insert into public.ai_usage (user_id) values ($1)", [B]))));
+check("admin stats include bookings", (await as(D, () => db.query("select public.admin_stats() as s"))).rows[0].s.bookings_30d === 1);
+
 console.log(failures ? `\n${failures} check(s) failed` : "\nAll checks passed");
 process.exit(failures ? 1 : 0);
