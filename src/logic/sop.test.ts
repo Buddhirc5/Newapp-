@@ -27,3 +27,14 @@ describe("SOP builder", () => {
     expect(checks[0].ok).toBe(false);
   });
 });
+
+import { goalPhrase } from "./sop";
+
+describe("goalPhrase", () => {
+  it("turns goals into phrases and leaves full sentences alone", () => {
+    expect(goalPhrase("I want to work as a data analyst in Colombo.")).toBe("work as a data analyst in Colombo");
+    expect(goalPhrase("To become a lecturer")).toBe("become a lecturer");
+    expect(goalPhrase("Lead a data team at a Sri Lankan bank")).toBe("lead a data team at a Sri Lankan bank");
+    expect(goalPhrase("I studied IT and worked at a bank.")).toBeNull();
+  });
+});

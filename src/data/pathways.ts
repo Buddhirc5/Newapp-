@@ -215,7 +215,7 @@ export const PATHWAYS: Pathway[] = [
       {
         title: "Post-study work visa",
         detail:
-          "After finishing an eligible qualification you may be able to get an open work visa for up to 3 years, depending on the qualification and where you studied.",
+          "After an eligible NZ qualification you can get an open work visa for up to 3 years, once only. Degrees at level 7 or higher need at least 30 weeks of full-time study in NZ. Apply within 3 months of your student visa ending, and show at least NZD 5,000. From 16 November 2026 some level 7 graduate diplomas also qualify, and applications are online only.",
       },
       {
         title: "Move towards residence",
@@ -232,7 +232,8 @@ export const PATHWAYS: Pathway[] = [
     timeline: "Start 9 to 12 months before your intake",
     residence: "No direct residence. Graduate, work in a skilled role, then apply through the Green List or the Skilled Migrant Category.",
     watchOuts: [
-      "Not every course leads to a post-study work visa. Check eligibility before you pay a deposit.",
+      "Not every course leads to a post-study work visa. Non-degree courses at level 7 or below must be on the eligible list. Check before you pay a deposit.",
+      "Working more hours than your visa allows can cost you your visa. Old visas with a 20-hour condition need a variation of conditions to get 25 hours.",
       "Partners of Masters and PhD students may qualify for a partner work visa. Check the current rules before you apply.",
       "An agent who promises a guaranteed visa is a red flag. No one can guarantee an Immigration NZ decision.",
     ],
@@ -439,19 +440,22 @@ export const PATHWAYS: Pathway[] = [
     requirements: [
       "Job offer from an Immigration NZ accredited employer",
       "An approved Job Check (job token) for your role",
-      "The qualifications or experience the role requires",
+      "At least 2 years of relevant work experience, or a relevant qualification at NZ level 4 or higher",
+      "Paid at least the market rate for the job and region (and never below the minimum wage, NZD 23.95 an hour from 1 April 2026)",
       "Proof of English for some roles (requirements were widened in 2026, so check yours)",
       "Health and character requirements (medical and police certificates)",
     ],
     timeline: "Often 6 to 18 months, mostly spent finding the right job",
     residence:
-      "Green List (Straight to Residence, or Work to Residence after 2 years), or the Skilled Migrant Category: the points-based, skilled work experience, or trades and technician pathways.",
+      "Green List (Straight to Residence, or Work to Residence after 2 years), or the Skilled Migrant Category. Since August 2026 the SMC has three pathways: 6 points (registration, qualification or pay), at least 5 years' skilled experience including 2 in NZ at 1.1 times the median wage, or trades and technicians with 4 years' experience including 18 months in NZ. The SMC median wage is NZD 35.00 an hour from 9 March 2026.",
     watchOuts: [
       "Never pay for a job offer. NZ law does not allow employers to charge a premium for a job.",
       "Check the employer is accredited before you resign from your job in Sri Lanka or pay anyone.",
       "Your AEWV is tied to your employer and role. Changing jobs needs a new visa or a change of conditions.",
+      "To bring dependent children on your AEWV you need to earn at least NZD 55,844 a year.",
+      "Before you leave Sri Lanka for a job, register with the Sri Lanka Bureau of Foreign Employment (SLBFE). Only SLBFE-licensed agents may charge Sri Lankan job seekers.",
     ],
-    sources: [SOURCES.inz, SOURCES.nzqa, SOURCES.employment, SOURCES.iaa],
+    sources: [SOURCES.inz, SOURCES.nzqa, SOURCES.employment, SOURCES.iaa, SOURCES.slbfe],
     checked: CONTENT_CHECKED,
     documents: ["passport", "photo", "degree", "transcripts", "experience", "english", "contract", "police", "medical", "cv"],
     levels: [
@@ -729,7 +733,7 @@ export const PATHWAYS: Pathway[] = [
     residence: "Partnership-based residence is possible if your partner is a citizen or resident and you meet the relationship requirements.",
     watchOuts: [
       "Start collecting relationship evidence early. Time apart needs explaining.",
-      "Parents of NZ citizens and residents have separate visitor and resident options. Check them on immigration.govt.nz.",
+      "Parents of NZ citizens and residents can apply for the Parent Boost visitor visa (up to 5 years, renewable once for another 5, with health insurance for the whole stay) or the Parent Category resident visa. Sponsor income rules rose on 30 April 2026.",
     ],
     sources: [SOURCES.inz, SOURCES.iaa],
     checked: CONTENT_CHECKED,

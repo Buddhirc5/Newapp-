@@ -342,14 +342,21 @@ export const GUIDES: Guide[] = [
       {
         heading: "Plan ahead",
         bullets: [
-          "Check your qualification is eligible and how long a visa it can give (up to three years for many Masters qualifications).",
-          "Apply before your student visa expires. Note the date in your calendar now.",
+          "Check your qualification is eligible and how long a visa it can give (up to three years, depending on the level and how long you studied). You can only get this visa once.",
+          "Degrees at level 7 or higher need at least 30 weeks of full-time study in NZ. From 16 November 2026, eligible level 7 graduate diplomas count too.",
+          "Apply online no later than 3 months after your student visa expires (6 months for a doctorate). Note the date in your calendar now.",
+          "You'll need to show at least NZD 5,000 to support yourself. The fee starts from NZD 1,670.",
           "Have your completion letter or results, passport and any medical or police certificates ready.",
         ],
       },
       {
         heading: "Use the time well",
-        bullets: ["Start job hunting in your final semester.", "Build NZ work experience that fits residence pathways later.", "Keep payslips and your employment agreements."],
+        bullets: [
+          "Start job hunting in your final semester.",
+          "Degree holders can do any legal job. Graduates of non-degree courses must work in a job related to their study.",
+          "Build skilled NZ work experience (ANZSCO skill level 1 to 3) at or above the median wage. It counts towards the Skilled Migrant Category later.",
+          "Keep payslips, IRD summaries and your employment agreements.",
+        ],
       },
     ],
   },

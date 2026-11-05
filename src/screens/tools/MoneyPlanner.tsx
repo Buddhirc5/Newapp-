@@ -99,7 +99,7 @@ export function MoneyPlanner() {
               value={plan.housing}
               onChange={(housing) => setMoney({ housing })}
               options={[
-                { value: "room", label: "Room in a flat" },
+                { value: "room", label: "Room" },
                 { value: "one-bed", label: "1 bedroom" },
                 { value: "two-bed", label: "2 bedrooms" },
               ]}

@@ -34,11 +34,12 @@ export function SavingsPlanner() {
   const result = useMemo(() => {
     const emi = installment(v.loanLkr, v.ratePct, v.termMonths);
     const month = monthlySurplus({ incomeNzd: v.incomeNzd, expensesNzd: v.expensesNzd, installmentLkr: emi, lkrPerNzd: rate.lkrPerNzd });
-    const extraNzd = Math.max(0, month.surplusNzd) * (v.extraShare / 100);
+    const hasLoan = v.loanLkr > 0 && v.termMonths > 0;
+    const extraNzd = hasLoan ? Math.max(0, month.surplusNzd) * (v.extraShare / 100) : 0;
     const savingsNzd = Math.max(0, month.surplusNzd) - extraNzd;
     const base = payoff(v.loanLkr, v.ratePct, emi);
     const faster = payoff(v.loanLkr, v.ratePct, emi + extraNzd * rate.lkrPerNzd);
-    return { emi, month, extraNzd, savingsNzd, base, faster };
+    return { emi, month, extraNzd, savingsNzd, base, faster, hasLoan };
   }, [v, rate.lkrPerNzd]);
 
   const saved = result.base && result.faster ? result.base.totalInterest - result.faster.totalInterest : 0;
@@ -68,7 +69,11 @@ export function SavingsPlanner() {
         <Card className="p-5">
           <p className="text-headline font-semibold">Left over each month</p>
           <p className={cn("type-display mt-1 text-title1 tabular", result.month.surplusNzd < 0 && "text-coral-ink")}>{formatNzd(result.month.surplusNzd)}</p>
-          {result.month.surplusNzd < 0 ? (
+          {result.month.surplusNzd >= 0 && !result.hasLoan ? (
+            <p className="mt-2 text-subhead text-label-2">
+              No loan to repay, so all of it can go into savings: about <b className="text-label">{formatNzd(result.savingsNzd * 12)}</b> a year. Keep one month of expenses as an emergency fund first.
+            </p>
+          ) : result.month.surplusNzd < 0 ? (
             <p className="mt-2 text-subhead text-coral-ink">Your costs and installment are more than your income. Look at a cheaper room, more hours, or ask your bank about a longer term.</p>
           ) : (
             <>
@@ -102,14 +107,21 @@ export function SavingsPlanner() {
           )}
         </Card>
 
-        {result.base && result.faster && result.month.surplusNzd >= 0 && (
+        {result.hasLoan && result.base && result.faster && result.month.surplusNzd >= 0 && (
           <section className="flex flex-col gap-3" aria-labelledby="payoff">
             <SectionHeader id="payoff" title="Loan-free sooner" />
             <Card className="flex flex-col gap-4 p-5">
               <Bar label="Normal installments" months={result.base.months} max={result.base.months} tone="bg-fill-3" />
               <Bar label="With extra payments" months={result.faster.months} max={result.base.months} tone="bg-teal" />
               <p className="text-subhead">
-                You'd finish <b>{result.base.months - result.faster.months} months earlier</b> and save about <b>{formatLkr(saved)}</b> in interest.
+                {result.base.months > result.faster.months ? (
+                  <>
+                    You'd finish <b>{result.base.months - result.faster.months} month{result.base.months - result.faster.months === 1 ? "" : "s"} earlier</b> and save about{" "}
+                    <b>{formatLkr(saved)}</b> in interest.
+                  </>
+                ) : (
+                  <>Move the slider to put some of what's left towards the loan and see how much sooner you'd finish.</>
+                )}
               </p>
               <p className="text-footnote text-label-2">In a year you'd also have about {formatNzd(result.savingsNzd * 12)} saved. Build one month of expenses as an emergency fund first.</p>
             </Card>

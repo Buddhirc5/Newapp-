@@ -207,7 +207,8 @@ export const QUIZ: QuizQuestion[] = [
     question: "After six months in a job, how many days of paid sick leave do you get each year?",
     options: ["3 days", "5 days", "10 days", "None"],
     answer: 2,
-    explain: "After six months of continuous employment, workers get 10 days of paid sick leave each year.",
+    explain:
+      "After six months of continuous employment, workers get 10 days of paid sick leave each year. The new Employment Leave Act 2026 will switch to sick leave earned by the hour once it takes effect (expected 2028).",
   },
   {
     id: "work-agreement",
@@ -216,6 +217,30 @@ export const QUIZ: QuizQuestion[] = [
     options: ["Yes, always", "Only for jobs over 40 hours", "Only for permanent jobs", "No, a handshake is enough"],
     answer: 0,
     explain: "Every employee must have a written employment agreement, including casual and part-time workers.",
+  },
+  {
+    id: "work-min-wage",
+    topic: "Work",
+    question: "What's the adult minimum wage in New Zealand from 1 April 2026?",
+    options: ["NZD 21.20 an hour", "NZD 23.50 an hour", "NZD 23.95 an hour", "NZD 27.00 an hour"],
+    answer: 2,
+    explain: "The adult minimum wage is NZD 23.95 an hour from 1 April 2026, before tax. It applies to every worker on every visa, including students.",
+  },
+  {
+    id: "work-trial",
+    topic: "Work",
+    question: "Your new job has a 90-day trial period. When is it valid?",
+    options: ["Only if it's agreed in writing before you start", "Always, for every new job", "Only for migrants", "Only for part-time jobs"],
+    answer: 0,
+    explain: "A trial period of up to 90 days only applies if it's in your written agreement and you signed it before starting. During it you still get minimum wage, holidays and safety rights.",
+  },
+  {
+    id: "work-pay-to-work",
+    topic: "Work",
+    question: "An employer asks you to pay NZD 5,000 to get your AEWV job offer. What is this?",
+    options: ["Illegal premium", "Normal agency fee", "Visa bond", "Training deposit"],
+    answer: 0,
+    explain: "Charging a premium for a job is illegal in New Zealand. Report it to Immigration NZ or Employment NZ, and never pay.",
   },
 ];
 
