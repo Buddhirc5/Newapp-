@@ -8,6 +8,22 @@ import { startMonitoring } from "@/lib/monitor";
 
 startMonitoring();
 
+// When a new version is deployed, the new service worker takes over; reload once
+// so people never keep using an old copy of the app.
+if ("serviceWorker" in navigator && !IS_PREVIEW) {
+  let reloaded = false;
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController || reloaded) return;
+    reloaded = true;
+    location.reload();
+  });
+  // Check for a new version whenever the app comes back to the foreground.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") void navigator.serviceWorker.getRegistration().then((r) => r?.update()).catch(() => undefined);
+  });
+}
+
 // The preview opens on a worked example so every screen shows real content.
 if (IS_PREVIEW && !useApp.getState().onboarded) useApp.getState().loadSample();
 
