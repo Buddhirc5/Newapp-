@@ -236,7 +236,7 @@ export function Me() {
               </IconTile>
             }
             title="KiwiPath Pro"
-            subtitle={state.waitlist.pro ? "You're on the waitlist" : "Unlimited coaching, CV reviews and more"}
+            subtitle={state.waitlist.pro ? "You're on the waitlist" : "AI document checks, community and more after your free month"}
             accessory="chevron"
             onClick={() => setPro(true)}
           />
@@ -388,11 +388,11 @@ function ProfileSheet({ open, onClose }: { open: boolean; onClose: () => void })
 }
 
 const PRO_FEATURES = [
+  "AI Document Check for passports, bank statements, letters and CVs",
+  "Community posting, chat and group meetups after your free month",
   "Unlimited English Coach sessions with saved recordings",
-  "CV review by a recruiter in your field",
-  "Personal document vault with expiry reminders",
-  "Priority mentor bookings and 10% off sessions",
-  "Deadline reminders for applications and visas",
+  "Priority expert bookings and 10% off paid sessions",
+  "Deadline and expiry reminders for documents and visas",
 ];
 
 function ProSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -414,7 +414,7 @@ function ProSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
       open={open}
       onClose={onClose}
       title="KiwiPath Pro"
-      description="Everything in KiwiPath stays free. Pro adds hands-on help for the busiest stretch of your move."
+      description="Every new member gets a free month of everything. Pro keeps it all switched on after that. Guides, paths and planners stay free forever."
       tone="night"
       footer={
         waitlisted ? (
@@ -440,7 +440,16 @@ function ProSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
           ))}
         </ul>
         {!waitlisted && (
-          <TextField label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-paper/10 text-paper placeholder:text-paper/40" />
+          <TextField
+            label="Email for launch news"
+            type="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            hint="Online payments are coming soon. We'll email you once Pro opens."
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="bg-paper/10 text-paper ring-paper/30 placeholder:text-paper/45 focus:bg-paper/15"
+          />
         )}
       </div>
     </Sheet>

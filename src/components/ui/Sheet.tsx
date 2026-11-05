@@ -107,7 +107,7 @@ export function Sheet({ open, onClose, title, description, children, footer, siz
             className={cn(
               "relative flex w-full max-w-[40rem] flex-col overflow-hidden outline-none",
               "rounded-t-sheet md:rounded-sheet",
-              night ? "bg-night text-paper" : "bg-bg text-label",
+              night ? "theme-dark bg-night text-paper" : "bg-bg text-label",
               size === "tall" ? "h-[92dvh] md:h-[min(85dvh,52rem)]" : "max-h-[92dvh] md:max-h-[85dvh]",
               "shadow-float",
             )}
