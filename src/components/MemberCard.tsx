@@ -66,7 +66,7 @@ export function MemberCard() {
             <p className="text-subhead font-semibold">{days > 0 ? `Free first month: ${days} day${days === 1 ? "" : "s"} left` : "Your free month has ended"}</p>
             <Meter value={days / 30} className="mt-2" barClass="bg-teal-ink" />
             <p className="mt-2 text-footnote text-label-2">
-              {access === "full" ? "Every feature is unlocked. Paid sessions with mentors and advisers are always paid separately." : "Core tools stay free. Pro will unlock the extras."}
+              {access === "full" ? "Every feature is unlocked. Paid sessions with mentors and advisers are always paid separately." : "Core tools stay free. Main or Ultra unlocks the AI features."}
             </p>
           </div>
         )}

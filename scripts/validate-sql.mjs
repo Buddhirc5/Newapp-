@@ -222,5 +222,18 @@ check("verified providers can offer visa advice", !(await as(G, () => fails(() =
 check("members can't write AI usage", await as(B, () => fails(() => db.query("insert into public.ai_usage (user_id) values ($1)", [B]))));
 check("admin stats include bookings", (await as(D, () => db.query("select public.admin_stats() as s"))).rows[0].s.bookings_30d === 1);
 
+// Plans and AI quota.
+await as(B, () => db.query("update public.profiles set plan = 'ultra', plan_ends_at = now() + interval '1 year' where id = $1", [B]));
+check("members can't give themselves Ultra", (await db.query("select plan from public.profiles where id = $1", [B])).rows[0].plan !== "ultra");
+await db.query("update public.profiles set plan = 'ultra', plan_ends_at = now() + interval '30 days' where id = $1", [B]);
+check("Ultra is effective while paid", (await as(B, () => db.query("select public.effective_plan($1) as p", [B]))).rows[0].p === "ultra");
+await db.query("update public.profiles set plan_ends_at = now() - interval '10 days' where id = $1", [B]);
+check("lapsed plans fall back to free", (await as(B, () => db.query("select public.effective_plan($1) as p", [B]))).rows[0].p === "free");
+await db.query("update public.profiles set plan_ends_at = now() + interval '30 days' where id = $1", [B]);
+const quota = (await as(B, () => db.query("select public.my_ai_quota() as q"))).rows[0].q;
+check("Ultra quota uses the Ultra limit", quota.plan === "ultra" && quota.limit === 60);
+check("members can't read other members' insights", (await as(C, () => db.query("select id from public.journey_insights where user_id = $1", [B]))).rows.length === 0);
+check("members can't write insights", await as(B, () => fails(() => db.query("insert into public.journey_insights (user_id, insight) values ($1, '{}')", [B]))));
+
 console.log(failures ? `\n${failures} check(s) failed` : "\nAll checks passed");
 process.exit(failures ? 1 : 0);

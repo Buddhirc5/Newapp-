@@ -29,7 +29,9 @@ import { toast, undoToast } from "@/components/ui/Toast";
 import { OCCUPATIONS } from "@/data/occupations";
 import { CITY_BY_ID } from "@/data/places";
 import { cn } from "@/lib/cn";
-import { aiChecksEnabled, analyzeDocument, useMember, type DocReview } from "@/lib/community";
+import { aiChecksEnabled, analyzeDocument, polishCv, useMember, type CvPolish, type DocReview } from "@/lib/community";
+import { SignInSheet } from "@/components/SignInSheet";
+import { aiErrorToast } from "@/components/UpgradeSheet";
 import { readCvFile, CvFileError, type CvFile } from "@/lib/cvFile";
 import { cvFileName, cvPdf } from "@/lib/cvPdf";
 import { HAS_SUPABASE } from "@/lib/env";
@@ -425,6 +427,8 @@ function Builder() {
         </div>
       </Card>
 
+      {HAS_SUPABASE && <CvAiPolish />}
+
       <section className="flex flex-col gap-4" aria-labelledby="cv-contact">
         <SectionHeader id="cv-contact" title="Contact" />
         <div className="grid gap-4 sm:grid-cols-2">
@@ -649,6 +653,112 @@ function Builder() {
       <SaveDraftSheet open={saveOpen} onClose={() => setSaveOpen(false)} suggested={cv.headline || cv.fullName || "My CV"} />
       <DraftsSheet open={draftsOpen} onClose={() => setDraftsOpen(false)} />
     </div>
+  );
+}
+
+/** Paid-plan AI rewrite of the summary, skills and bullets. Nothing changes until the member applies it. */
+function CvAiPolish() {
+  const cv = useApp((s) => s.cv);
+  const replaceCv = useApp((s) => s.replaceCv);
+  const user = useAuth((s) => s.user);
+  const [target, setTarget] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<CvPolish | null>(null);
+  const [signIn, setSignIn] = useState(false);
+
+  const run = async () => {
+    if (!user) return setSignIn(true);
+    setBusy(true);
+    try {
+      const res = await polishCv(cv, target.trim());
+      setResult(res.result);
+      toast(`Suggestions ready · ${res.remaining} AI requests left today`, "info");
+    } catch (e) {
+      aiErrorToast(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const apply = () => {
+    if (!result) return;
+    const before = cv;
+    const byId = new Map(result.experience.map((j) => [j.id, j.bullets]));
+    replaceCv({
+      ...cv,
+      summary: result.summary || cv.summary,
+      skills: result.skills.length ? result.skills.join(", ") : cv.skills,
+      experience: cv.experience.map((j) => (byId.get(j.id)?.length ? { ...j, bullets: byId.get(j.id)!.join("\n") } : j)),
+    });
+    setResult(null);
+    undoToast("AI suggestions applied", () => replaceCv(before));
+  };
+
+  return (
+    <Card className="flex flex-col gap-3 p-4 sm:p-5">
+      <div className="flex items-center gap-2">
+        <Sparkles className="size-5 text-teal-ink" aria-hidden />
+        <p className="text-headline font-semibold">AI polish</p>
+        <span className="ml-auto rounded-full bg-gold-soft px-2.5 py-0.5 text-caption font-bold text-ink">Main & Ultra</span>
+      </div>
+      <p className="text-subhead text-label-2">Rewrites your summary, skills and bullets in NZ style. It only uses what you've written, and nothing changes until you apply it.</p>
+      <TextField label="Job you're applying for (optional)" placeholder="e.g. Assistant Accountant, Auckland" value={target} onChange={(e) => setTarget(e.target.value)} />
+      <Button variant="tinted" onClick={run} disabled={busy || (!cv.summary.trim() && !cv.experience.length)} icon={<Sparkles className="size-5" aria-hidden />}>
+        {busy ? "Polishing… a few seconds" : "Polish my CV with AI"}
+      </Button>
+      <SignInSheet open={signIn} onClose={() => setSignIn(false)} />
+      <Sheet
+        open={result !== null}
+        onClose={() => setResult(null)}
+        title="Suggested changes"
+        description="Check every line is true before you apply it."
+        size="tall"
+        footer={
+          <Button block onClick={apply}>
+            Apply suggestions
+          </Button>
+        }
+      >
+        {result && (
+          <div className="flex flex-col gap-4">
+            <div>
+              <p className="text-footnote font-semibold text-label-2 uppercase">Profile</p>
+              <p className="mt-1 text-subhead">{result.summary}</p>
+            </div>
+            {result.skills.length > 0 && (
+              <div>
+                <p className="text-footnote font-semibold text-label-2 uppercase">Key skills</p>
+                <p className="mt-1 text-subhead">{result.skills.join(" · ")}</p>
+              </div>
+            )}
+            {result.experience.map((j) => {
+              const job = cv.experience.find((x) => x.id === j.id);
+              if (!job) return null;
+              return (
+                <div key={j.id}>
+                  <p className="text-footnote font-semibold text-label-2 uppercase">{job.role || "Role"}</p>
+                  <ul className="mt-1 list-disc pl-5 text-subhead">
+                    {j.bullets.map((b) => (
+                      <li key={b}>{b}</li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+            {result.tips.length > 0 && (
+              <div className="rounded-tile bg-gold-soft p-4 text-ink">
+                <p className="text-headline font-semibold">Tips</p>
+                <ul className="mt-1 list-disc pl-5 text-subhead">
+                  {result.tips.map((t) => (
+                    <li key={t}>{t}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </Sheet>
+    </Card>
   );
 }
 

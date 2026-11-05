@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AiCoach } from "@/components/AiCoach";
 import { Link } from "react-router";
 import { ArrowRight, ArrowUpRight, Check, ChevronRight, Flame, MapPin, Plane } from "lucide-react";
 import { ICONS } from "@/components/icons";
@@ -137,6 +138,8 @@ export function Journey() {
             )}
           </div>
         </section>
+
+        <AiCoach />
 
         {/* Map */}
         <section aria-labelledby="journey-map" className="flex flex-col gap-4">

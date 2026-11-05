@@ -16,6 +16,7 @@
     "gen:topo": "node scripts/gen-topo.mjs",
     "gen:seed": "vite-node scripts/gen-seed.ts",
     "validate:sql": "node scripts/validate-sql.mjs",
+    "sync:functions": "node scripts/sync-functions.mjs",
     "screens": "node scripts/screens.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"scripts/**/*.{js,mjs,ts}\""
   },

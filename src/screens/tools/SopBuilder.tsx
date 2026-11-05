@@ -1,10 +1,15 @@
 import { useMemo, useState } from "react";
-import { CircleAlert, CircleCheck, Copy, Wand2 } from "lucide-react";
+import { CircleAlert, CircleCheck, Copy, Sparkles, Wand2 } from "lucide-react";
 import { Page } from "@/components/layout/Page";
 import { Card, SectionHeader } from "@/components/ui/Bits";
 import { Button } from "@/components/ui/Button";
 import { TextArea, TextField } from "@/components/ui/Controls";
-import { toast } from "@/components/ui/Toast";
+import { toast, undoToast } from "@/components/ui/Toast";
+import { SignInSheet } from "@/components/SignInSheet";
+import { aiErrorToast } from "@/components/UpgradeSheet";
+import { writeSop } from "@/lib/community";
+import { HAS_SUPABASE } from "@/lib/env";
+import { useAuth } from "@/lib/sync";
 import { readJson, writeJson } from "@/lib/storage";
 import { copyText } from "@/lib/platform";
 import { checkSop, draftSop, EMPTY_SOP, type SopInput } from "@/logic/sop";
@@ -27,6 +32,27 @@ const FIELDS: { key: keyof SopInput; label: string; hint: string; long?: boolean
 export function SopBuilder() {
   const [input, setInput] = useState<SopInput>(() => ({ ...EMPTY_SOP, ...(readJson<SopInput>(KEY) ?? {}) }));
   const [text, setText] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [tips, setTips] = useState<string[]>([]);
+  const [signIn, setSignIn] = useState(false);
+  const user = useAuth((s) => s.user);
+
+  const writeWithAi = async () => {
+    if (!user) return setSignIn(true);
+    setAiBusy(true);
+    try {
+      const res = await writeSop(input);
+      const before = text;
+      setText(res.result.draft);
+      setTips(res.result.tips);
+      if (before) undoToast(`AI draft ready · ${res.remaining} AI requests left today`, () => setText(before), "info");
+      else toast(`AI draft ready · ${res.remaining} AI requests left today`, "info");
+    } catch (e) {
+      aiErrorToast(e);
+    } finally {
+      setAiBusy(false);
+    }
+  };
   const checks = useMemo(() => (text ? checkSop(text, input) : []), [text, input]);
 
   const update = (key: keyof SopInput, value: string) => {
@@ -36,7 +62,7 @@ export function SopBuilder() {
   };
 
   return (
-    <Page title="SOP Builder" back={{ to: "/tools", label: "Tools" }} lead="Answer the prompts, get a structured first draft, then rewrite it in your own voice. Saved on this device only.">
+    <Page title="SOP Builder" back={{ to: "/tools", label: "Tools" }} lead="Answer the prompts, get a structured first draft, then rewrite it in your own voice. Your answers are saved on this device.">
       <div className="flex flex-col gap-6">
         <section className="flex flex-col gap-4" aria-labelledby="sop-input">
           <SectionHeader id="sop-input" title="Your details" />
@@ -50,6 +76,12 @@ export function SopBuilder() {
           <Button onClick={() => setText(draftSop(input))} icon={<Wand2 className="size-5" aria-hidden />} disabled={!input.programme || !input.university}>
             Build my draft
           </Button>
+          {HAS_SUPABASE && (
+            <Button variant="tinted" onClick={writeWithAi} disabled={aiBusy || !input.programme || !input.university} icon={<Sparkles className="size-5" aria-hidden />}>
+              {aiBusy ? "Writing… about 20 seconds" : "Write a fuller draft with AI (Main & Ultra)"}
+            </Button>
+          )}
+          <SignInSheet open={signIn} onClose={() => setSignIn(false)} />
         </section>
 
         {text && (
@@ -67,6 +99,16 @@ export function SopBuilder() {
                 ))}
               </ul>
             </Card>
+            {tips.length > 0 && (
+              <Card className="bg-gold-soft p-4 text-ink">
+                <p className="text-headline font-semibold">Before you submit</p>
+                <ul className="mt-1 list-disc pl-5 text-subhead">
+                  {tips.map((t) => (
+                    <li key={t}>{t}</li>
+                  ))}
+                </ul>
+              </Card>
+            )}
             <Button variant="dark" icon={<Copy className="size-5" aria-hidden />} onClick={async () => toast((await copyText(text)) ? "Copied" : "Couldn't copy", "info")}>
               Copy text
             </Button>

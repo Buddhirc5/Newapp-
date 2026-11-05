@@ -285,7 +285,7 @@ function Overview() {
   const tiles = [
     { label: "Members", value: n("members"), sub: `+${n("new_7d")} this week` },
     { label: "In Sri Lanka", value: n("in_lk"), sub: `${n("in_nz")} in New Zealand` },
-    { label: "On free month", value: n("on_trial"), sub: `${n("pro")} on Pro` },
+    { label: "On free month", value: n("on_trial"), sub: `${n("pro")} Main · ${n("ultra")} Ultra` },
     { label: "Active listings", value: n("listings"), sub: `${n("hidden")} hidden` },
     { label: "Open reports", value: n("open_reports"), sub: `${n("pending_agencies")} agencies to review` },
     { label: "Group messages", value: n("messages_7d"), sub: "last 7 days" },
@@ -377,7 +377,8 @@ function Members() {
           <option value="all">All plans</option>
           <option value="trial">Trial</option>
           <option value="free">Free</option>
-          <option value="pro">Pro</option>
+          <option value="pro">Main</option>
+          <option value="ultra">Ultra</option>
         </Select>
       </div>
       {rows === null ? (
@@ -408,7 +409,7 @@ function Members() {
                     <td className="px-3 py-3">{r.situation === "in_nz" ? "NZ" : r.situation === "in_lk" ? "Sri Lanka" : "Other"} · {r.city || "—"}</td>
                     <td className="px-3 py-3">{STAGE_LABEL[r.stage] ?? r.stage}</td>
                     <td className="px-3 py-3">
-                      <Tag tint={r.plan === "pro" ? "gold" : r.plan === "trial" ? "malibu" : "lavender"} solid={false} className="text-caption">
+                      <Tag tint={r.plan === "pro" || r.plan === "ultra" ? "gold" : r.plan === "trial" ? "malibu" : "lavender"} solid={false} className="text-caption">
                         {r.plan}
                       </Tag>
                     </td>
@@ -473,7 +474,8 @@ function MemberSheet({ member, onClose, onSaved }: { member: AdminMember | null;
         <Select label="Plan" value={draft.plan} onChange={(e) => setDraft({ ...draft, plan: e.target.value })}>
           <option value="trial">Trial</option>
           <option value="free">Free</option>
-          <option value="pro">Pro</option>
+          <option value="pro">Main</option>
+          <option value="ultra">Ultra</option>
         </Select>
         <div className="flex items-center justify-between gap-3">
           <p className="text-subhead">

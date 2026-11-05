@@ -17,8 +17,9 @@ export interface MemberProfile {
   bio: string;
   languages: string[];
   verified: boolean;
-  plan: "trial" | "free" | "pro";
+  plan: "trial" | "free" | "pro" | "ultra";
   trial_ends_at: string;
+  plan_ends_at?: string | null;
   created_at: string;
   situation: "in_lk" | "in_nz" | "elsewhere";
   stage: "exploring" | "preparing" | "applying" | "visa" | "arrived" | "settled";
@@ -295,9 +296,12 @@ export function trialDaysLeft(profile: Pick<MemberProfile, "plan" | "trial_ends_
 export type Access = "full" | "free";
 
 /** Everyone gets every feature during the first month; paid gigs are always paid. */
-export function accessLevel(profile: Pick<MemberProfile, "plan" | "trial_ends_at"> | null, now = Date.now()): Access {
+export function accessLevel(profile: Pick<MemberProfile, "plan" | "trial_ends_at" | "plan_ends_at"> | null, now = Date.now()): Access {
   if (!profile) return "free";
-  if (profile.plan === "pro") return "full";
+  if (profile.plan === "pro" || profile.plan === "ultra") {
+    // Same 3-day renewal grace as the database's effective_plan().
+    return !profile.plan_ends_at || new Date(profile.plan_ends_at).getTime() + 3 * 86_400_000 > now ? "full" : "free";
+  }
   return trialDaysLeft(profile, now) > 0 ? "full" : "free";
 }
 
@@ -747,4 +751,112 @@ export async function fetchDocReviews(): Promise<{ id: string; doc_type: string;
   const sb = await client();
   const { data } = await sb.from("document_reviews").select("*").order("created_at", { ascending: false }).limit(20);
   return (data ?? []) as { id: string; doc_type: string; file_name: string; result: DocReview; created_at: string }[];
+}
+
+// ── Packages, AI help and checkout ───────────────────────────────────────
+
+export type PaidPlan = "pro" | "ultra";
+
+export const PLAN_NAME: Record<MemberProfile["plan"], string> = { trial: "Free month", free: "Free", pro: "Main", ultra: "Ultra" };
+
+export interface AiQuota {
+  plan: MemberProfile["plan"];
+  limit: number;
+  used: number;
+  enabled: boolean;
+}
+
+export async function aiQuota(): Promise<AiQuota> {
+  const sb = await client();
+  requireUser();
+  const { data, error } = await sb.rpc("my_ai_quota");
+  if (error) throw error;
+  return data as AiQuota;
+}
+
+export interface Packages {
+  mainPrice: number;
+  ultraPrice: number;
+  mainLimit: number;
+  ultraLimit: number;
+  paymentsEnabled: boolean;
+}
+
+export async function fetchPackages(): Promise<Packages> {
+  const sb = await client();
+  const { data } = await sb
+    .from("app_settings")
+    .select("key, value")
+    .in("key", ["main_price_lkr", "ultra_price_lkr", "ai_daily_limit_pro", "ai_daily_limit_ultra", "payments_enabled"]);
+  const get = (k: string, d: number) => Number(data?.find((r) => r.key === k)?.value ?? d);
+  return {
+    mainPrice: get("main_price_lkr", 1990),
+    ultraPrice: get("ultra_price_lkr", 5990),
+    mainLimit: get("ai_daily_limit_pro", 15),
+    ultraLimit: get("ai_daily_limit_ultra", 60),
+    paymentsEnabled: data?.find((r) => r.key === "payments_enabled")?.value === true,
+  };
+}
+
+/** An error from an Edge Function, with whether upgrading would help. */
+export class AiRequestError extends Error {
+  constructor(
+    message: string,
+    readonly upgrade = false,
+  ) {
+    super(message);
+  }
+}
+
+async function invoke<T>(fn: string, body: Record<string, unknown>): Promise<T> {
+  const sb = await client();
+  requireUser();
+  const { data, error } = await sb.functions.invoke(fn, { body });
+  if (error) {
+    const payload = (await (error as { context?: Response }).context?.json?.().catch(() => null)) as { error?: string; upgrade?: boolean } | null;
+    throw new AiRequestError(payload?.error ?? "That didn't work. Try again.", Boolean(payload?.upgrade));
+  }
+  return data as T;
+}
+
+export interface CvPolish {
+  summary: string;
+  skills: string[];
+  experience: { id: string; bullets: string[] }[];
+  tips: string[];
+}
+
+export interface JourneyInsight {
+  headline: string;
+  next_steps: { title: string; why: string }[];
+  risks: string[];
+  encouragement: string;
+}
+
+export const polishCv = (cv: unknown, target: string) => invoke<{ result: CvPolish; remaining: number }>("ai-assist", { kind: "cv", cv, target });
+export const writeSop = (sop: unknown) => invoke<{ result: { draft: string; tips: string[] }; remaining: number }>("ai-assist", { kind: "sop", sop });
+export const reviewJourney = () => invoke<{ result: JourneyInsight; remaining: number }>("ai-assist", { kind: "journey" });
+
+export async function latestInsight(): Promise<{ insight: JourneyInsight; created_at: string; source: string } | null> {
+  const sb = await client();
+  const user = requireUser();
+  const { data } = await sb.from("journey_insights").select("insight, created_at, source").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  return (data as { insight: JourneyInsight; created_at: string; source: string } | null) ?? null;
+}
+
+/** Starts a PayHere checkout: posts the signed fields to PayHere's hosted payment page. */
+export async function startCheckout(plan: PaidPlan, phone: string, city: string): Promise<void> {
+  const res = await invoke<{ action: string; fields: Record<string, string> }>("payhere-checkout", { plan, phone, city, returnUrl: window.location.href });
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = res.action;
+  for (const [name, value] of Object.entries(res.fields)) {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = value;
+    form.appendChild(input);
+  }
+  document.body.appendChild(form);
+  form.submit();
 }

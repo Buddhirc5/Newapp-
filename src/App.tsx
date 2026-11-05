@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { createBrowserRouter, createMemoryRouter, RouterProvider, type RouteObject } from "react-router";
 import { MotionConfig } from "motion/react";
 import { AppShell } from "@/components/layout/AppShell";
+import { UpgradeSheet } from "@/components/UpgradeSheet";
 import { Toaster } from "@/components/ui/Toast";
 import { IS_PREVIEW } from "@/lib/env";
 import { loadRemoteContent } from "@/lib/content";
@@ -120,6 +121,7 @@ export default function App() {
     <MotionConfig reducedMotion="user">
       <RouterProvider router={router} />
       <Toaster />
+      <UpgradeSheet />
     </MotionConfig>
   );
 }

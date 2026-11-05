@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Cloud, CloudOff, Copy, Crown, Database, Download, Info, Lock, LogOut, Mail, RefreshCcw, Trash2, UserRound } from "lucide-react";
+import { useUpgrade } from "@/components/UpgradeSheet";
 import { Page } from "@/components/layout/Page";
 import { Mascot } from "@/components/Mascot";
 import { TINT } from "@/components/tints";
@@ -18,7 +19,7 @@ import { HAS_SUPABASE } from "@/lib/env";
 import { formatLkr, relativeDay, todayKey } from "@/lib/format";
 import { LANG_LABEL, useT } from "@/lib/i18n";
 import { copyText, saveFile } from "@/lib/platform";
-import { joinWaitlistRemote } from "@/lib/remote";
+import { loadMember, PLAN_NAME, useMember } from "@/lib/community";
 import { signOut, useAuth } from "@/lib/sync";
 import { SignInSheet } from "@/components/SignInSheet";
 import { MemberCard } from "@/components/MemberCard";
@@ -32,7 +33,22 @@ export function Me() {
   const auth = useAuth();
   const [editing, setEditing] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
-  const [pro, setPro] = useState(false);
+  const showUpgrade = useUpgrade((s) => s.show);
+  const memberPlan = useMember((s) => s.profile?.plan);
+
+  // Coming back from PayHere's payment page.
+  useEffect(() => {
+    const payment = new URLSearchParams(window.location.search).get("payment");
+    if (!payment) return;
+    window.history.replaceState(null, "", window.location.pathname);
+    if (payment === "cancelled") {
+      toast("Payment cancelled. Nothing was charged.", "info");
+      return;
+    }
+    toast("Payment received. Your package switches on within a minute.");
+    const timer = window.setTimeout(() => void loadMember(), 4000);
+    return () => window.clearTimeout(timer);
+  }, []);
   const [confirmReset, setConfirmReset] = useState(false);
 
   const pathway = usePathways()[state.pathId];
@@ -228,17 +244,23 @@ export function Me() {
           )}
         </ListGroup>
 
-        <ListGroup header="KiwiPath Pro">
+        <ListGroup header="Packages">
           <ListRow
             icon={
               <IconTile tint="gold">
                 <Crown className="size-5" aria-hidden />
               </IconTile>
             }
-            title="KiwiPath Pro"
-            subtitle={state.waitlist.pro ? "You're on the waitlist" : "AI document checks, community and more after your free month"}
+            title={memberPlan === "pro" || memberPlan === "ultra" ? `KiwiPath ${PLAN_NAME[memberPlan]}` : "Main and Ultra packages"}
+            subtitle={
+              memberPlan === "pro" || memberPlan === "ultra"
+                ? "Manage your package"
+                : state.waitlist.pro
+                  ? "You're on the list for payments"
+                  : "AI help, document checks and community after your free month"
+            }
             accessory="chevron"
-            onClick={() => setPro(true)}
+            onClick={() => showUpgrade()}
           />
         </ListGroup>
 
@@ -305,7 +327,6 @@ export function Me() {
 
       <ProfileSheet open={editing} onClose={() => setEditing(false)} />
       <SignInSheet open={signingIn} onClose={() => setSigningIn(false)} />
-      <ProSheet open={pro} onClose={() => setPro(false)} />
       <AlertDialog
         open={confirmReset}
         title="Reset KiwiPath?"
@@ -387,71 +408,4 @@ function ProfileSheet({ open, onClose }: { open: boolean; onClose: () => void })
   );
 }
 
-const PRO_FEATURES = [
-  "AI Document Check for passports, bank statements, letters and CVs",
-  "Community posting, chat and group meetups after your free month",
-  "Unlimited English Coach sessions with saved recordings",
-  "Priority expert bookings and 10% off paid sessions",
-  "Deadline and expiry reminders for documents and visas",
-];
 
-function ProSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const waitlisted = useApp((s) => s.waitlist.pro);
-  const joinWaitlist = useApp((s) => s.joinWaitlist);
-  const [email, setEmail] = useState("");
-  const join = async () => {
-    const res = await joinWaitlistRemote("pro", email);
-    if (!res.ok) {
-      toast(`Couldn't join: ${res.message}`, "warn");
-      return;
-    }
-    joinWaitlist("pro");
-    toast(res.remote ? "You're on the Pro waitlist" : "Saved on this device");
-    onClose();
-  };
-  return (
-    <Sheet
-      open={open}
-      onClose={onClose}
-      title="KiwiPath Pro"
-      description="Every new member gets a free month of everything. Pro keeps it all switched on after that. Guides, paths and planners stay free forever."
-      tone="night"
-      footer={
-        waitlisted ? (
-          <p className="text-center text-subhead text-paper/70">You're on the waitlist. We'll email you at launch.</p>
-        ) : (
-          <Button block disabled={!/^\S+@\S+\.\S+$/.test(email)} onClick={join}>
-            Join the waitlist
-          </Button>
-        )
-      }
-    >
-      <div className="flex flex-col gap-5">
-        <div className="flex items-end gap-2">
-          <p className="type-display text-title1">Rs 1,490</p>
-          <p className="pb-1 text-subhead text-paper/70">per month, planned price</p>
-        </div>
-        <ul className="flex flex-col gap-2.5">
-          {PRO_FEATURES.map((f) => (
-            <li key={f} className="flex gap-3 rounded-2xl bg-paper/[0.07] px-4 py-3 text-subhead">
-              <Crown className="mt-0.5 size-4 shrink-0 text-gold" aria-hidden />
-              {f}
-            </li>
-          ))}
-        </ul>
-        {!waitlisted && (
-          <TextField
-            label="Email for launch news"
-            type="email"
-            autoComplete="email"
-            placeholder="you@example.com"
-            hint="Online payments are coming soon. We'll email you once Pro opens."
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="bg-paper/10 text-paper ring-paper/30 placeholder:text-paper/45 focus:bg-paper/15"
-          />
-        )}
-      </div>
-    </Sheet>
-  );
-}

@@ -1,10 +1,9 @@
 // Reviews an uploaded visa document with Claude and returns a fix/get/make checklist.
 // The file is read from the member's private folder, analysed, then deleted.
-// Requires the ANTHROPIC_API_KEY secret and the ai_enabled setting.
-import Anthropic from "npm:@anthropic-ai/sdk@1.5.0";
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const MODEL = "claude-opus-5-5";
+// Requires the ANTHROPIC_API_KEY secret, the ai_enabled setting and a plan with AI uses left today.
+// Runs on Claude Haiku 5.5 (low effort); retries once on Sonnet 5.5 (low effort)
+// if Haiku fails or can't read the document.
+import { AiError, generate, json, member, recordUsage } from "./ai.ts";
 
 const DOC_TYPES: Record<string, string> = {
   passport: "passport bio page",
@@ -63,51 +62,19 @@ Extract only the key fields a person needs to double-check; mask passport and ID
 Never say a document is genuine or guarantee an outcome. This is general information, not immigration advice; suggest a licensed adviser for anything uncertain.
 If the image is unreadable or isn't the stated document, set readable to false and explain what to upload instead.`;
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json", "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, apikey, content-type" },
-  });
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
-  const url = Deno.env.get("SUPABASE_URL")!;
-  const service = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const asUser = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
-
-  const { data: auth } = await asUser.auth.getUser();
-  const user = auth.user;
-  if (!user) return json({ error: "Sign in to check documents." }, 401);
-
   const { path, docType, fileName } = (await req.json().catch(() => ({}))) as { path?: string; docType?: string; fileName?: string };
-  if (!path || !path.startsWith(`${user.id}/`)) return json({ error: "Upload the document first." }, 400);
-  const removeFile = () => service.storage.from("documents").remove([path]);
-
-  // Admin switches and limits.
-  const { data: settings } = await service.from("app_settings").select("key, value").in("key", ["ai_enabled", "ai_daily_limit"]);
-  const setting = (k: string) => settings?.find((s) => s.key === k)?.value;
-  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (setting("ai_enabled") !== true || !apiKey) {
-    await removeFile();
-    return json({ error: "AI document checks aren't switched on yet." }, 503);
+  const m = await member(req);
+  if (!m.ok) {
+    // Don't leave the upload behind when the check can't run.
+    if (path) await clientsRemove(req, path);
+    return m.res;
   }
+  if (!path || !path.startsWith(`${m.userId}/`)) return json({ error: "Upload the document first." }, 400);
+  const removeFile = () => m.service.storage.from("documents").remove([path]);
 
-  const { data: profile } = await service.from("profiles").select("plan, trial_ends_at, display_name").eq("id", user.id).single();
-  const fullAccess = profile && (profile.plan === "pro" || (profile.plan === "trial" && new Date(profile.trial_ends_at) > new Date()));
-  if (!fullAccess) {
-    await removeFile();
-    return json({ error: "AI checks are part of Pro. Your free month has ended." }, 402);
-  }
-
-  const limit = Number(setting("ai_daily_limit") ?? 5);
-  const since = new Date(Date.now() - 86_400_000).toISOString();
-  const { count } = await service.from("ai_usage").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", since);
-  if ((count ?? 0) >= limit) {
-    await removeFile();
-    return json({ error: `You've used today's ${limit} checks. Try again tomorrow.` }, 429);
-  }
-
-  const { data: file, error: downloadError } = await service.storage.from("documents").download(path);
+  const { data: file, error: downloadError } = await m.service.storage.from("documents").download(path);
   if (downloadError || !file) return json({ error: "Couldn't read the upload. Try again." }, 400);
   const bytes = new Uint8Array(await file.arrayBuffer());
   await removeFile();
@@ -122,45 +89,36 @@ Deno.serve(async (req) => {
       : ({ type: "image", source: { type: "base64", media_type: (["image/png", "image/webp", "image/gif"].includes(mime) ? mime : "image/jpeg") as "image/jpeg", data } } as const);
 
   const label = DOC_TYPES[docType ?? "other"] ?? DOC_TYPES.other;
-  const client = new Anthropic({ apiKey });
+  const { data: profile } = await m.service.from("profiles").select("display_name").eq("id", m.userId).single();
 
   try {
-    const response = await client.beta.messages.create({
-      model: MODEL,
-      max_tokens: 16000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      output_config: { effort: "medium", format: { type: "json_schema", schema: SCHEMA } },
-      system: SYSTEM,
-      messages: [
-        {
-          role: "user",
-          content: [
-            source,
-            {
-              type: "text",
-              text: `This should be a ${label}. The applicant's name on their profile is "${profile?.display_name ?? "unknown"}". Review it and return the checklist.`,
-            },
-          ],
-        },
-      ],
-    });
-
-    if (response.stop_reason === "refusal") return json({ error: "This document couldn't be reviewed automatically. Ask a licensed adviser to check it." }, 422);
-    const text = response.content.find((b) => b.type === "text");
-    if (!text || text.type !== "text") return json({ error: "The review came back empty. Try again." }, 502);
-    const result = JSON.parse(text.text);
-
-    await service.from("ai_usage").insert({ user_id: user.id, kind: "document" });
-    const { data: saved } = await service
+    const out = await generate<{ readable: boolean; issues: unknown[] }>(
+      {
+        system: SYSTEM,
+        schema: SCHEMA,
+        content: [source, { type: "text", text: `This should be a ${label}. The applicant's name on their profile is "${profile?.display_name ?? "unknown"}". Review it and return the checklist.` }],
+      },
+      // An unreadable result from Haiku gets a second look from Sonnet.
+      (v) => v.readable !== false && Array.isArray(v.issues),
+    );
+    await recordUsage(m.service, m.userId, "document", out.model);
+    const { data: saved } = await m.service
       .from("document_reviews")
-      .insert({ user_id: user.id, doc_type: docType ?? "other", file_name: (fileName ?? "").slice(0, 120), result })
+      .insert({ user_id: m.userId, doc_type: docType ?? "other", file_name: (fileName ?? "").slice(0, 120), result: out.data })
       .select("id, created_at")
       .single();
-    return json({ result, id: saved?.id, remaining: Math.max(0, limit - (count ?? 0) - 1) });
+    return json({ result: out.data, id: saved?.id, model: out.model, remaining: Math.max(0, m.quota.limit - m.quota.used - 1) });
   } catch (e) {
-    if (e instanceof Anthropic.RateLimitError) return json({ error: "The checker is busy. Try again in a minute." }, 429);
-    if (e instanceof Anthropic.APIError) return json({ error: `The checker couldn't run (${e.status}).` }, 502);
+    if (e instanceof AiError) return json({ error: e.message }, e.status);
     return json({ error: "Something went wrong while checking. Try again." }, 500);
   }
 });
+
+async function clientsRemove(req: Request, path: string) {
+  const { createClient } = await import("npm:@supabase/supabase-js@2");
+  const asUser = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
+  });
+  // Members can only remove files in their own folder, so this is safe to try.
+  await asUser.storage.from("documents").remove([path]);
+}
