@@ -15,7 +15,6 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { Page } from "@/components/layout/Page";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Mascot } from "@/components/Mascot";
 import { AiUsage } from "@/screens/admin/AiUsage";
