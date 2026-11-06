@@ -11,6 +11,34 @@ export function RouteError() {
   const stale = /dynamically imported module|Importing a module script failed|Failed to fetch dynamically/i.test(String((error as Error)?.message ?? error));
 
   useEffect(() => {
+    // A crash right after a deploy usually means this tab mixes old and new code.
+    // If the live site has a newer build, reload onto it once instead of showing an error.
+    if (!stale) {
+      const current = [...document.scripts].map((s) => s.src).find((src) => /\/assets\/index-[^/]+\.js$/.test(src));
+      let tried = false;
+      try {
+        tried = sessionStorage.getItem(RELOAD_KEY) === `build:${location.pathname}`;
+      } catch {
+        /* storage blocked */
+      }
+      if (current && !tried) {
+        void fetch(`/landing?build=${Date.now()}`, { cache: "no-store" })
+          .then((r) => r.text())
+          .then((html) => {
+            const live = html.match(/\/assets\/index-[^"']+\.js/)?.[0];
+            if (live && !current.endsWith(live)) {
+              try {
+                sessionStorage.setItem(RELOAD_KEY, `build:${location.pathname}`);
+              } catch {
+                /* storage blocked */
+              }
+              location.reload();
+            } else void reportError(error, "route error");
+          })
+          .catch(() => void reportError(error, "route error"));
+        return;
+      }
+    }
     if (stale) {
       try {
         if (sessionStorage.getItem(RELOAD_KEY) !== location.pathname) {

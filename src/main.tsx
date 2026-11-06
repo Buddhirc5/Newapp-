@@ -15,7 +15,10 @@ if (!IS_PREVIEW && import.meta.env.PROD) inject();
 
 // When a new version is deployed, the new service worker takes over; reload once
 // so people never keep using an old copy of the app.
-if ("serviceWorker" in navigator && !IS_PREVIEW) {
+if ("serviceWorker" in navigator && !IS_PREVIEW && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
+  });
   let reloaded = false;
   const hadController = Boolean(navigator.serviceWorker.controller);
   navigator.serviceWorker.addEventListener("controllerchange", () => {

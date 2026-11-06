@@ -7,13 +7,24 @@ export const RELEASE = (import.meta.env.VITE_RELEASE as string | undefined) ?? _
 const seen = new Map<string, number>();
 let sent = 0;
 
+const BOT = /bot|crawl|spider|slurp|google(other|-inspectiontool)|lighthouse|headless|facebookexternalhit|preview/i;
+
+/** True when an error came from KiwiPath's own code (not an in-app browser, extension or ad script). */
+function fromOurCode(err: Error, file = ""): boolean {
+  const ours = `${location.origin}/assets/`;
+  return file.startsWith(ours) || (err.stack ?? "").includes(ours);
+}
+
 /** Sends one error to the admin error log. Repeats and noise are dropped; never throws. */
-export async function reportError(error: unknown, extra = ""): Promise<void> {
-  if (!HAS_SUPABASE) return;
+export async function reportError(error: unknown, extra = "", file = ""): Promise<void> {
+  if (!HAS_SUPABASE || BOT.test(navigator.userAgent)) return;
   const err = error instanceof Error ? error : new Error(String(error));
   const message = `${err.name}: ${err.message}`.slice(0, 500);
-  // Browser extensions and lost connections aren't app bugs.
-  if (/ResizeObserver loop|Failed to fetch|Load failed|NetworkError|chrome-extension:|moz-extension:|AbortError/i.test(`${message} ${err.stack ?? ""}`)) return;
+  // Hidden cross-site errors, browser extensions, Facebook/Instagram in-app
+  // browser scripts and lost connections aren't KiwiPath bugs.
+  if (/^Error: Script error\.?$/.test(message)) return;
+  if (/ResizeObserver loop|Failed to fetch|Load failed|NetworkError|chrome-extension:|moz-extension:|AbortError|_META|IABInnerFrame|webkit\.messageHandlers|fbq|instantSearchSDK/i.test(`${message} ${err.stack ?? ""}`)) return;
+  if (extra !== "route error" && !fromOurCode(err, file)) return;
   const key = message + (err.stack ?? "").split("\n")[1];
   const now = Date.now();
   if ((seen.get(key) ?? 0) > now - 60_000 || sent >= 20) return;
@@ -36,7 +47,7 @@ export async function reportError(error: unknown, extra = ""): Promise<void> {
 /** Catches uncaught errors and unhandled promise rejections. */
 export function startMonitoring() {
   if (!HAS_SUPABASE || typeof window === "undefined") return;
-  window.addEventListener("error", (e) => void reportError(e.error ?? e.message));
+  window.addEventListener("error", (e) => void reportError(e.error ?? e.message, "", e.filename ?? ""));
   window.addEventListener("unhandledrejection", (e) => void reportError(e.reason, "unhandled promise"));
 }
 

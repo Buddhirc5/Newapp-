@@ -17,6 +17,8 @@ export default defineConfig(({ mode }) => {
     plugins.push(
       VitePWA({
         registerType: "autoUpdate",
+        // Registered in main.tsx, where a refusal (crawlers, private modes) is handled quietly.
+        injectRegister: false,
         includeAssets: ["favicon.svg", "apple-touch-icon.png"],
         manifest: {
           name: "KiwiPath",
