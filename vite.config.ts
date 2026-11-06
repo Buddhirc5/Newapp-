@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
           name: "KiwiPath",
           short_name: "KiwiPath",
           description: "Your step-by-step guide from Sri Lanka to New Zealand.",
-          theme_color: "#F5F4ED",
+          theme_color: "#00765F",
           background_color: "#F5F4ED",
           display: "standalone",
           orientation: "portrait",

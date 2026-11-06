@@ -16,7 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Mascot } from "@/components/Mascot";
+import { LogoMark } from "@/components/Logo";
 import { AiUsage } from "@/screens/admin/AiUsage";
 import { Pills } from "@/screens/admin/charts";
 import { Dashboard } from "@/screens/admin/Dashboard";
@@ -160,7 +160,7 @@ function GateScreen({ children }: { children: ReactNode }) {
       <div className="relative z-10 flex w-full max-w-md flex-col gap-5">
         <div className="flex items-center justify-between gap-3">
           <span className="flex items-center gap-2">
-            <Mascot className="size-9" pose="stand" animate={false} />
+            <LogoMark className="size-9" />
             <span className="type-display text-headline tracking-tight">KIWIPATH ADMIN</span>
           </span>
           <Link to="/" className="inline-flex min-h-11 items-center rounded-full px-3 text-subhead font-semibold text-teal-ink hover:bg-fill">
@@ -442,7 +442,7 @@ export function Console() {
       <header className="sticky top-0 z-30 px-3 pt-3 sm:px-5">
         <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-2 rounded-[1.6rem] bg-surface p-2 md:flex-nowrap text-label shadow-float ring-1 ring-sep dark:bg-night-2">
           <Link to="/" className="mr-auto flex shrink-0 items-center gap-2 rounded-full py-1 pr-3 pl-2 md:mr-0" aria-label="KiwiPath home">
-            <Mascot className="size-8" pose="stand" animate={false} />
+            <LogoMark className="size-8" />
             <span className="type-display text-headline tracking-tight">KIWIPATH</span>
           </Link>
           <nav aria-label="Admin sections" className="no-scrollbar order-last -mx-1 flex w-full min-w-0 gap-1 overflow-x-auto px-1 md:order-none md:mx-0 md:w-auto md:flex-1 md:px-0">

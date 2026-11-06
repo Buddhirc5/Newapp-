@@ -16,12 +16,12 @@ body{margin:0;width:1200px;height:630px;background:#100F06;color:#F5F4ED;font-fa
 h1{font-size:${p.title.length > 40 ? 64 : 78}px;line-height:1.04;margin:26px 0 18px;font-weight:900;letter-spacing:-2px;max-width:920px}
 p{font-size:30px;color:#d6d4c8;margin:0;max-width:900px;line-height:1.3}
 .dot{position:absolute;border-radius:50%}.url{position:absolute;bottom:46px;left:90px;font-size:28px;font-weight:700;color:#4FD1AD}
-.brand{position:absolute;bottom:46px;right:90px;font-size:28px;font-weight:900}
+.brand{position:absolute;bottom:40px;right:90px;font-size:30px;font-weight:900;display:flex;align-items:center;gap:12px}
 </style></head><body>
 <div class="dot" style="width:520px;height:520px;right:-170px;top:-190px;background:#00765f;opacity:.5"></div>
 <div class="dot" style="width:240px;height:240px;right:140px;bottom:-110px;background:#FF8FB7;opacity:.45"></div>
 <div style="position:relative"><div class="tag">${esc(p.kicker)}</div><h1>${esc(p.title)}</h1><p>${esc(p.sub)}</p></div>
-<div class="url">kiwipath.space</div><div class="brand">KiwiPath</div></body></html>`;
+<div class="url">kiwipath.space</div><div class="brand"><svg viewBox="0 0 512 512" width="46" height="46" aria-hidden="true"><rect width="512" height="512" rx="116" fill="#00765F"/><g transform="translate(-6 -14)"><path d="M136 392 C136 260 210 150 320 128 C404 112 432 214 366 252 C318 280 270 236 300 200 C318 180 350 190 348 214" fill="none" stroke="#F5F4ED" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/><circle cx="136" cy="392" r="34" fill="#FFDA57"/></g></svg><span>KiwiPath</span></div></body></html>`;
 
 (async () => {
   const b = await chromium.launch();

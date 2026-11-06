@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Mascot, Sparkle } from "@/components/Mascot";
+import { Logo } from "@/components/Logo";
 import { SignInSheet } from "@/components/SignInSheet";
 import { TINT } from "@/components/tints";
 import { Button } from "@/components/ui/Button";
@@ -93,7 +94,7 @@ export function Landing() {
       <div className="topo-layer" aria-hidden />
       <header className="relative z-10 gutter-x">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between">
-          <p className="type-display text-title3">KiwiPath</p>
+          <Logo />
           <div className="flex items-center gap-2">
             <ThemeToggle />
             {HAS_SUPABASE && (

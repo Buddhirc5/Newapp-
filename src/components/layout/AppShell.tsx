@@ -10,7 +10,7 @@ import { useApp } from "@/store/app";
 import { HAS_SUPABASE } from "@/lib/env";
 import { useAuth } from "@/lib/sync";
 import { useMember } from "@/lib/community";
-import { Mascot } from "../Mascot";
+import { LogoMark } from "../Logo";
 import { SampleBanner } from "../SampleBanner";
 import { TrialBanner } from "../TrialBanner";
 import { AskFab } from "../assistant/AskFab";
@@ -134,7 +134,7 @@ function Sidebar() {
       aria-label="Sidebar"
     >
       <div className="flex items-center gap-3 px-2 pb-6">
-        <Mascot className="size-12" pose="stand" animate={false} />
+        <LogoMark className="size-12" />
         <div>
           <p className="type-display text-title3 leading-none">KiwiPath</p>
           <p className="mt-1 text-footnote text-label-2">Colombo → Aotearoa</p>

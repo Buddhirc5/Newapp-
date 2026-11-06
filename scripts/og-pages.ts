@@ -7,6 +7,7 @@ const RATE = 186.96;
 const month = (n: number) => Math.round((n * 52) / 12);
 
 export const OG_PAGES = [
+  { slug: "home", kicker: "Colombo \u2192 Aotearoa", title: "Move from Sri Lanka to New Zealand, step by step", sub: "Visa paths, budgets in rupees, CV Studio, jobs, document tracker and an AI assistant.", color: "#FFDA57" },
   { slug: "learn", kicker: "Free guides", title: "Moving from Sri Lanka to New Zealand", sub: "Funds, SOPs, visas, jobs and your first 30 days, in plain English.", color: "#FFD23F" },
   { slug: "visa", kicker: "Visa paths", title: "5 ways to move to New Zealand", sub: "Study, skilled work, registered jobs, family and business, compared.", color: "#8FD3FF" },
   { slug: "cities", kicker: "Cost of living", title: "What 14 NZ cities really cost", sub: "Rent, food and transport each month, in NZD and rupees.", color: "#FFD23F" },

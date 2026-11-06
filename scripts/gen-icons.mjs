@@ -21,7 +21,7 @@ for (const t of targets) {
   await page.setViewportSize({ width: t.size, height: t.size });
   const inner = Math.round(t.size * (1 - t.pad * 2));
   await page.setContent(
-    `<body style="margin:0;background:#FFDA57;display:grid;place-items:center;width:${t.size}px;height:${t.size}px"><img src="${uri}" width="${inner}" height="${inner}"></body>`,
+    `<body style="margin:0;background:#00765F;display:grid;place-items:center;width:${t.size}px;height:${t.size}px"><img src="${uri}" width="${inner}" height="${inner}"></body>`,
   );
   await page.screenshot({ path: new URL(`../public/${t.file}`, import.meta.url).pathname, omitBackground: false });
   console.log("wrote", t.file);

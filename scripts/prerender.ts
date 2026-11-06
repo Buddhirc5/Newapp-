@@ -33,7 +33,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 system-ui,-app
 a{color:var(--teal)}.wrap{max-width:760px;margin:0 auto;padding:0 16px}
 header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
 header .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;height:60px;max-width:1040px}
-.logo{font-weight:900;font-size:20px;letter-spacing:-.02em;color:var(--ink);text-decoration:none}
+.logo{display:inline-flex;align-items:center;gap:8px;font-weight:900;font-size:20px;letter-spacing:-.02em;color:var(--ink);text-decoration:none}
 nav a{color:var(--muted);text-decoration:none;font-weight:600;font-size:15px;margin-left:14px}
 .cta{display:inline-flex;align-items:center;min-height:44px;padding:0 20px;border-radius:999px;background:var(--night);color:#f5f4ed!important;font-weight:700;text-decoration:none;margin:0!important}
 @media (prefers-color-scheme:dark){.cta{background:var(--gold);color:#1b1a14!important}}
@@ -109,7 +109,7 @@ function page(o: PageOpts) {
 ${ld.map((x) => `<script type="application/ld+json">${JSON.stringify(x).replace(/</g, "\\u003c")}</script>`).join("\n")}
 </head>
 <body>
-<header><div class="wrap"><a class="logo" href="/landing">KiwiPath</a><nav><a class="hide" href="/learn">Guides</a><a class="hide" href="/visa">Visa paths</a><a class="hide" href="/cities">Cities</a><a class="cta" href="/landing">Start free</a></nav></div></header>
+<header><div class="wrap"><a class="logo" href="/landing"><svg viewBox="0 0 512 512" width="34" height="34" aria-hidden="true"><rect width="512" height="512" rx="116" fill="#00765F"/><g transform="translate(-6 -14)"><path d="M136 392 C136 260 210 150 320 128 C404 112 432 214 366 252 C318 280 270 236 300 200 C318 180 350 190 348 214" fill="none" stroke="#F5F4ED" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/><circle cx="136" cy="392" r="34" fill="#FFDA57"/></g></svg>KiwiPath</a><nav><a class="hide" href="/learn">Guides</a><a class="hide" href="/visa">Visa paths</a><a class="hide" href="/cities">Cities</a><a class="cta" href="/landing">Start free</a></nav></div></header>
 <main class="wrap">
 <p class="crumbs">${crumbs.map((c, i) => (i === crumbs.length - 1 ? esc(c.name) : `<a href="${c.path}">${esc(c.name)}</a>`)).join(" › ")}</p>
 ${o.body}
