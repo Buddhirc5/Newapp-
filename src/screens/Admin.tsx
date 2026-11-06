@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import {
   CreditCard,
@@ -76,77 +76,113 @@ export function Admin() {
   const isAdmin = useMember((s) => s.isAdmin);
   const loading = useMember((s) => s.loading);
   const memberFor = useMember((s) => s.userId);
-  // The authenticator state is always tied to the account it was checked for.
-  const [mfa, setMfa] = useState<MfaState & { userId: string | null }>({ kind: "loading", userId: null });
-  const sessionFresh = useIdleSignOut(Boolean(user && isAdmin && memberFor === user?.id));
-
   const userId = user?.id ?? null;
-  // `quiet` re-checks in the background without hiding the console first; the
-  // screen only changes if the answer changes (for example the session lost
-  // its authenticator step), so admins don't lose their place.
-  const refreshMfa = useCallback(
-    (quiet = false) => {
-      if (!userId) return;
-      if (!quiet) setMfa({ kind: "loading", userId });
-      mfaState().then(
-        // Keep the same object when nothing changed, so the console isn't re-rendered.
-        (m) => setMfa((cur) => (cur.userId === userId && cur.kind === m.kind ? cur : { ...m, userId })),
-        () => setMfa({ kind: "none", userId }),
-      );
-    },
-    [userId],
-  );
+
+  // Every sign-in change bumps `version`, and the console only shows for an
+  // authenticator check made for the current version. An older answer (for
+  // example "verified" from before signing out and in again) can never open it.
+  const versionRef = useRef(0);
+  const [version, setVersion] = useState(0);
+  const [mfa, setMfa] = useState<MfaState & { userId: string | null; version: number }>({ kind: "loading", userId: null, version: -1 });
+  const bump = useCallback(() => {
+    versionRef.current += 1;
+    setVersion(versionRef.current);
+  }, []);
+  const check = useCallback(() => {
+    if (!userId) return;
+    const v = versionRef.current;
+    mfaState().then(
+      (m) => {
+        if (versionRef.current !== v) return;
+        setMfa((cur) => (cur.userId === userId && cur.version === v && cur.kind === m.kind ? cur : { ...m, userId, version: v }));
+      },
+      () => versionRef.current === v && setMfa({ kind: "none", userId, version: v }),
+    );
+  }, [userId]);
+
+  const eligible = Boolean(userId && isAdmin && memberFor === userId);
+  const sessionFresh = useIdleSignOut(eligible);
 
   useEffect(() => {
-    setMfa({ kind: "loading", userId: null });
-    if (userId && isAdmin && memberFor === userId) refreshMfa();
-  }, [userId, isAdmin, memberFor, refreshMfa]);
+    bump();
+    if (eligible) check();
+  }, [eligible, userId, bump, check]);
 
-  // Re-check on every sign-in event, and when the tab comes back into focus,
-  // so a session that lost its authenticator step (or changed account in
-  // another tab) never keeps showing the console.
+  // Sign-in changes hide the console until checked again; token refreshes and
+  // returning to the tab re-check quietly (the screen only changes if the answer does).
   useEffect(() => {
     let stop = () => {};
     void getSupabase()?.then((sb) => {
       const { data } = sb.auth.onAuthStateChange((event) => {
-        if (["SIGNED_IN", "TOKEN_REFRESHED", "MFA_CHALLENGE_VERIFIED", "USER_UPDATED"].includes(event)) refreshMfa(true);
+        if (["SIGNED_IN", "SIGNED_OUT", "USER_UPDATED", "MFA_CHALLENGE_VERIFIED"].includes(event)) {
+          bump();
+          check();
+        } else if (event === "TOKEN_REFRESHED") check();
       });
       stop = () => data.subscription.unsubscribe();
     });
-    const onFocus = () => document.visibilityState === "visible" && refreshMfa(true);
+    const onFocus = () => document.visibilityState === "visible" && check();
     document.addEventListener("visibilitychange", onFocus);
     return () => {
       stop();
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [refreshMfa]);
+  }, [bump, check]);
 
   const memberReady = Boolean(userId) && memberFor === userId && !loading;
-  const mfaReady = mfa.userId === userId && mfa.kind !== "loading";
+  const mfaReady = mfa.userId === userId && mfa.version === version && mfa.kind !== "loading";
 
-  let body: ReactNode;
-  if (!HAS_SUPABASE) body = <Notice title="Online only">The admin console works in the online version.</Notice>;
-  else if (!ready) body = <div className="h-40 animate-pulse rounded-card bg-fill-2" />;
-  else if (!user) body = <AdminLogin />;
-  else if (!memberReady) body = <div className="h-40 animate-pulse rounded-card bg-fill-2" />;
-  else if (!isAdmin) body = <Notice tone="warn" title="Admins only">This account isn't an admin. Ask the owner to add you in Supabase (public.admins).</Notice>;
-  else if (!mfaReady || !sessionFresh) body = <div className="h-40 animate-pulse rounded-card bg-fill-2" />;
-  else if (mfa.kind === "needs-code") body = <MfaCode factorId={mfa.factorId} onDone={() => refreshMfa()} />;
-  // Admin rights only work after the authenticator step, so setting one up is required.
-  else if (mfa.kind === "none")
-    body = (
-      <div className="mx-auto w-full max-w-md">
-        <EnrolBanner onEnrolled={() => refreshMfa()} />
-      </div>
+  if (!HAS_SUPABASE) return <GateScreen><Notice title="Online only">The admin console works in the online version.</Notice></GateScreen>;
+  if (!ready) return <GateScreen><Checking /></GateScreen>;
+  if (!user) return <GateScreen><AdminLogin /></GateScreen>;
+  if (!memberReady) return <GateScreen><Checking /></GateScreen>;
+  if (!isAdmin)
+    return (
+      <GateScreen>
+        <Notice tone="warn" title="Admins only">
+          This account isn't an admin. Ask the owner to add you in Supabase (public.admins).
+        </Notice>
+      </GateScreen>
     );
-  // Only an authenticator-verified session for this exact account reaches the console.
-  else if (mfa.kind === "verified") return <Console />;
-  else body = <div className="h-40 animate-pulse rounded-card bg-fill-2" />;
+  if (!mfaReady || !sessionFresh) return <GateScreen><Checking /></GateScreen>;
+  if (mfa.kind === "needs-code") return <GateScreen><MfaCode factorId={mfa.factorId} onDone={check} /></GateScreen>;
+  // Admin rights only work after the authenticator step, so setting one up is required.
+  if (mfa.kind === "none") return <GateScreen><EnrolBanner onEnrolled={check} /></GateScreen>;
+  // Only an authenticator-verified session for this exact account and sign-in reaches the console.
+  if (mfa.kind === "verified") return <Console />;
+  return <GateScreen><Checking /></GateScreen>;
+}
 
+/** Full-screen admin layout for everything before the console: no member-app chrome. */
+function GateScreen({ children }: { children: ReactNode }) {
   return (
-    <Page title="Admin" back={{ to: "/me", label: "Me" }} wide>
-      {body}
-    </Page>
+    <div className="relative grid min-h-dvh place-items-center bg-bg gutter-x py-10">
+      <div className="topo-layer" aria-hidden />
+      <div className="relative z-10 flex w-full max-w-md flex-col gap-5">
+        <div className="flex items-center justify-between gap-3">
+          <span className="flex items-center gap-2">
+            <Mascot className="size-9" pose="stand" animate={false} />
+            <span className="type-display text-headline tracking-tight">KIWIPATH ADMIN</span>
+          </span>
+          <Link to="/" className="inline-flex min-h-11 items-center rounded-full px-3 text-subhead font-semibold text-teal-ink hover:bg-fill">
+            Back to app
+          </Link>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Checking() {
+  return (
+    <Card className="flex items-center gap-4 p-6" aria-live="polite">
+      <span className="size-6 shrink-0 animate-spin rounded-full border-[3px] border-fill-3 border-t-teal" aria-hidden />
+      <div>
+        <p className="text-headline font-semibold">Checking admin access…</p>
+        <p className="text-footnote text-label-2">Making sure this session passed the authenticator step.</p>
+      </div>
+    </Card>
   );
 }
 
@@ -223,8 +259,8 @@ function useIdleSignOut(active: boolean): boolean {
       // A sign-in newer than the last activity is a fresh session, not a stale one.
       const lastSeen = Math.max(last, signedInAt);
       if (Date.now() - lastSeen > IDLE_MS) {
+        markTimedOut();
         await signOut();
-        toast("Signed out after 15 minutes without activity", "info");
         return;
       }
       touchActivity();
@@ -246,8 +282,8 @@ function useIdleSignOut(active: boolean): boolean {
         touchActivity();
       }
       timer = window.setTimeout(async () => {
+        markTimedOut();
         await signOut();
-        toast("Signed out after 15 minutes without activity", "info");
       }, IDLE_MS);
     };
     const events = ["pointerdown", "keydown", "scroll", "visibilitychange"] as const;
@@ -266,7 +302,25 @@ function useIdleSignOut(active: boolean): boolean {
   return checked;
 }
 
+const TIMEOUT_KEY = "kp-admin-timeout";
+function markTimedOut() {
+  try {
+    sessionStorage.setItem(TIMEOUT_KEY, "1");
+  } catch {
+    /* storage blocked */
+  }
+}
+
 function AdminLogin() {
+  const [timedOut] = useState(() => {
+    try {
+      const v = sessionStorage.getItem(TIMEOUT_KEY) === "1";
+      sessionStorage.removeItem(TIMEOUT_KEY);
+      return v;
+    } catch {
+      return false;
+    }
+  });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -275,7 +329,7 @@ function AdminLogin() {
   const [captchaReset, setCaptchaReset] = useState(0);
   const google = useGoogleEnabled();
   return (
-    <Card className="mx-auto flex w-full max-w-md flex-col gap-4 p-6">
+    <Card className="flex w-full flex-col gap-4 p-6">
       <div className="flex items-center gap-3">
         <span className="grid size-11 place-items-center rounded-2xl bg-night text-paper">
           <ShieldCheck className="size-5" aria-hidden />
@@ -285,8 +339,13 @@ function AdminLogin() {
           <p className="text-footnote text-label-2">Protected by an authenticator app</p>
         </div>
       </div>
+      {timedOut && (
+        <p className="rounded-tile bg-gold/20 px-4 py-3 text-subhead" role="status">
+          For security, admin sessions end after 15 minutes without activity. Sign in again to continue.
+        </p>
+      )}
       {google && (
-        <Button variant="outline" icon={<GoogleMark />} onClick={() => void signInWithGoogle()} block>
+        <Button variant="outline" icon={<GoogleMark />} onClick={() => void signInWithGoogle("/admin")} block>
           Continue with Google
         </Button>
       )}
@@ -326,7 +385,7 @@ function MfaCode({ factorId, onDone }: { factorId: string; onDone: () => void })
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   return (
-    <Card className="mx-auto flex w-full max-w-md flex-col gap-4 p-6">
+    <Card className="flex w-full flex-col gap-4 p-6">
       <KeyRound className="size-7 text-teal-ink" aria-hidden />
       <p className="text-headline font-semibold">Enter the code from your authenticator app</p>
       <form

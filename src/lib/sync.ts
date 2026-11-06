@@ -167,13 +167,13 @@ export async function signOut(everywhere = false): Promise<void> {
 }
 
 /** Google sign-in through Supabase. Returns to the page the person started on. */
-export async function signInWithGoogle(): Promise<{ ok: boolean; message?: string }> {
+export async function signInWithGoogle(next = "/start"): Promise<{ ok: boolean; message?: string }> {
   const sb = await getSupabase();
   if (!sb) return { ok: false, message: "Sign-in isn't available in this version." };
   markSignIn();
   const { error } = await sb.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: `${window.location.origin}/start`, queryParams: { prompt: "select_account" } },
+    options: { redirectTo: `${window.location.origin}${next}`, queryParams: { prompt: "select_account" } },
   });
   return error ? { ok: false, message: error.message } : { ok: true };
 }
