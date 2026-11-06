@@ -193,10 +193,12 @@ export function Members() {
                             {m.verified && <BadgeCheck className="size-4 shrink-0 text-teal" aria-label="Verified" />}
                           </p>
                           <p className="truncate text-footnote text-label-2">{m.email}</p>
-                          <p className="truncate text-caption text-label-3">
-                            {m.provider === "google" ? "Google" : "Email code"}
-                            {m.signup_source ? ` · from ${m.signup_source}${m.signup_campaign ? ` (${m.signup_campaign})` : ""}` : ""}
-                          </p>
+                          {m.provider && (
+                            <p className="truncate text-caption text-label-3">
+                              {m.provider === "google" ? "Google" : m.provider === "email" ? "Email code" : m.provider}
+                              {m.signup_source ? ` · from ${m.signup_source}${m.signup_campaign ? ` (${m.signup_campaign})` : ""}` : ""}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </td>
