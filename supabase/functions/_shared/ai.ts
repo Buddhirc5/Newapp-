@@ -60,7 +60,8 @@ type Service = ReturnType<typeof clients>["service"];
 
 /**
  * Reserves one AI use before calling the model, so parallel requests can't go
- * past the daily limit. Returns null when the limit is reached.
+ * past the daily limit. Returns null when the limit is reached, or -1 when
+ * KiwiPath's daily AI budget is used up.
  */
 export async function reserve(service: Service, userId: string, kind: string): Promise<number | null> {
   const { data, error } = await service.rpc("reserve_ai_use", { p_user: userId, p_kind: kind });
