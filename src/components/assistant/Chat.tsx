@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { ArrowUp, Check, ExternalLink, Sparkles, Wand2 } from "lucide-react";
+import { ArrowUp, Check, ExternalLink, Sparkles, ThumbsDown, ThumbsUp, Wand2 } from "lucide-react";
 import { Mascot } from "@/components/Mascot";
 import { cn } from "@/lib/cn";
 import { HAS_SUPABASE } from "@/lib/env";
@@ -72,6 +72,23 @@ export function ChatThread({ a, compact, onNavigate }: { a: Assistant; compact?:
                     >
                       {x.done ? <Check className="size-4 shrink-0" aria-hidden /> : <Wand2 className="size-4 shrink-0" aria-hidden />}
                       <span className="min-w-0">{x.done ? `Done: ${x.label}` : x.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {m.role === "assistant" && m.questionId && (
+                <div className="mt-2 flex items-center gap-1 text-label-3">
+                  <span className="mr-1 text-caption">Helpful?</span>
+                  {(["up", "down"] as const).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      disabled={Boolean(m.rated)}
+                      aria-label={v === "up" ? "Helpful" : "Not helpful"}
+                      onClick={() => a.rate(i, v === "up")}
+                      className={cn("grid size-9 place-items-center rounded-full transition-colors hover:bg-fill disabled:hover:bg-transparent", m.rated === v && "bg-fill text-teal-ink")}
+                    >
+                      {v === "up" ? <ThumbsUp className="size-4" aria-hidden /> : <ThumbsDown className="size-4" aria-hidden />}
                     </button>
                   ))}
                 </div>

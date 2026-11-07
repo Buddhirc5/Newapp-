@@ -868,7 +868,13 @@ export interface ChatReply {
   actions?: AssistantAction[];
 }
 export const askAssistant = (messages: { role: "user" | "assistant"; text: string }[], app: Record<string, string>) =>
-  invoke<{ result: ChatReply; remaining: number }>("ai-assist", { kind: "chat", messages, app });
+  invoke<{ result: ChatReply; remaining: number; question_id?: number | null }>("ai-assist", { kind: "chat", messages, app });
+
+/** Member feedback on one assistant answer. */
+export async function rateAnswer(id: number, helpful: boolean): Promise<void> {
+  const sb = await client();
+  await sb.rpc("rate_ai_answer", { p_id: id, p_helpful: helpful });
+}
 
 export interface Job {
   id: string;

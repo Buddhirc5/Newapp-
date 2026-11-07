@@ -10,6 +10,8 @@ const SECTIONS: { title: string; points: string[] }[] = [
       "What you post: listings, messages, group chats, reports and bookings.",
       "AI results: document checklists, CV suggestions and journey reviews. The documents themselves are deleted as soon as they've been checked.",
       "Payments: receipts from PayHere (amount, date, package). We never see or store card numbers.",
+      "Usage statistics: which screens and features you open (not what you type), how you signed in and which link brought you here, so we can improve KiwiPath.",
+      "Questions you ask the AI assistant, with emails and phone numbers removed, and whether you marked an answer helpful. Our team reads these to improve answers.",
     ],
   },
   {

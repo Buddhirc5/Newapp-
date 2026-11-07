@@ -3,11 +3,12 @@ import { aiErrorToast } from "@/components/UpgradeSheet";
 import { toast } from "@/components/ui/Toast";
 import { DOCUMENT_BY_ID } from "@/data/documents";
 import { CITIES, CITY_BY_ID } from "@/data/places";
-import { askAssistant, updateMember, type AssistantAction } from "@/lib/community";
+import { askAssistant, rateAnswer, updateMember, type AssistantAction } from "@/lib/community";
 import { useContent } from "@/lib/content";
 import { HAS_SUPABASE } from "@/lib/env";
 import { useAuth } from "@/lib/sync";
 import { useApp, type ChatMessage } from "@/store/app";
+import { track } from "@/lib/track";
 import type { CityId, DocStatus, PathId } from "@/types";
 
 /** Screens the assistant may open. */
@@ -111,6 +112,7 @@ export function useAssistant() {
     const next: ChatMessage[] = [...before, { role: "user", text: q, at: new Date().toISOString() }];
     setChat(next);
     setBusy(true);
+    track("ai:chat");
     try {
       const res = await askAssistant(
         next.slice(-10).map((m) => ({ role: m.role, text: m.text })),
@@ -119,7 +121,7 @@ export function useAssistant() {
       setLeft(res.remaining);
       setChat([
         ...next,
-        { role: "assistant", text: res.result.answer, links: res.result.links, followUps: res.result.follow_ups, actions: res.result.actions ?? [], at: new Date().toISOString() },
+        { role: "assistant", text: res.result.answer, links: res.result.links, followUps: res.result.follow_ups, actions: res.result.actions ?? [], questionId: res.question_id ?? null, at: new Date().toISOString() },
       ]);
       return true;
     } catch (e) {
@@ -136,11 +138,21 @@ export function useAssistant() {
     const a = msg?.actions?.[actionIndex];
     if (!a || a.done) return;
     const ok = applyAction(a as AssistantAction, navigate);
+    track("ai:action", a.type);
     if (!ok) return toast("That change isn't available. Try asking again.", "warn");
     if (a.type !== "open") toast(`Done: ${a.label}`);
     const chatNow = useApp.getState().chat.map((m, i) => (i === msgIndex ? { ...m, actions: m.actions?.map((x, j) => (j === actionIndex ? { ...x, done: true } : x)) } : m));
     setChat(chatNow);
   };
 
-  return { chat, busy, left, send, apply, clear: () => setChat([]) };
+  const rate = (msgIndex: number, up: boolean) => {
+    const msg = useApp.getState().chat[msgIndex];
+    if (!msg?.questionId || msg.rated) return;
+    void rateAnswer(msg.questionId, up).catch(() => undefined);
+    track("ai:rate", up ? "up" : "down");
+    setChat(useApp.getState().chat.map((m, i) => (i === msgIndex ? { ...m, rated: up ? "up" : "down" } : m)));
+    toast(up ? "Thanks! Glad it helped." : "Thanks. We'll use this to improve answers.", "info");
+  };
+
+  return { chat, busy, left, send, apply, rate, clear: () => setChat([]) };
 }

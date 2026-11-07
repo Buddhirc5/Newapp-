@@ -12,12 +12,16 @@ import { formatLkr } from "@/lib/format";
 import { joinWaitlistRemote } from "@/lib/remote";
 import { useAuth } from "@/lib/sync";
 import { useApp } from "@/store/app";
+import { track } from "@/lib/track";
 
 /** Open the packages sheet from anywhere, e.g. when an AI limit is reached. */
 export const useUpgrade = create<{ open: boolean; reason: string | null; show: (reason?: string) => void; hide: () => void }>((set) => ({
   open: false,
   reason: null,
-  show: (reason) => set({ open: true, reason: reason ?? null }),
+  show: (reason) => {
+    track("upgrade:open", reason ? "limit" : "menu");
+    set({ open: true, reason: reason ?? null });
+  },
   hide: () => set({ open: false }),
 }));
 
@@ -79,6 +83,7 @@ export function UpgradeSheet() {
             onClick={async () => {
               setBusy(true);
               try {
+                track("checkout:start", `${choice}-${billing}`);
                 await startCheckout(choice, phone, city, billing);
               } catch (e) {
                 toast(e instanceof Error ? e.message : "Couldn't open the payment page.", "warn");

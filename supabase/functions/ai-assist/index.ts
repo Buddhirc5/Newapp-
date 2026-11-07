@@ -199,7 +199,14 @@ Deno.serve(withCors(async (req) => {
       model = out.model;
       const links = (out.data.links ?? []).filter((l) => /^https:\/\/[a-z0-9.-]+\.[a-z]{2,}(\/\S*)?$/i.test(l.url)).slice(0, 4);
       const actions = (out.data.actions ?? []).filter((a) => a && typeof a.target === "string" && typeof a.label === "string").slice(0, 3).map((a) => ({ type: a.type, target: clip(a.target, 80), value: clip(a.value, 40), label: clip(a.label, 60) }));
-      return json({ result: { ...out.data, links, actions, follow_ups: (out.data.follow_ups ?? []).slice(0, 3) }, model: out.model, remaining: m.quota.limit - m.quota.used - 1 });
+      // Keep the question (without emails or phone numbers) so admins can improve answers and tools.
+      const scrub = (t: string) => t.replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]").replace(/\+?\d[\d\s-]{7,}\d/g, "[phone]");
+      const { data: logged } = await m.service
+        .from("ai_questions")
+        .insert({ user_id: m.userId, question: scrub(clip(last.text, 1500)), answer: clip(out.data.answer, 4000), model: out.model, actions: actions.length })
+        .select("id")
+        .single();
+      return json({ result: { ...out.data, links, actions, follow_ups: (out.data.follow_ups ?? []).slice(0, 3) }, question_id: logged?.id ?? null, model: out.model, remaining: m.quota.limit - m.quota.used - 1 });
     }
 
     return json({ error: "Unknown request." }, 400);

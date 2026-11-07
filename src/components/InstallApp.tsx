@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { Download, PlusSquare, Share, X } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { cn } from "@/lib/cn";
+import { track } from "@/lib/track";
 
 interface InstallPrompt extends Event {
   prompt: () => Promise<void>;
@@ -38,6 +39,7 @@ export function useInstallAction() {
   const prompt = useInstall((s) => s.prompt);
   const [iosOpen, setIosOpen] = useState(false);
   const run = async () => {
+    track("install:tap", prompt ? "prompt" : "ios-steps");
     if (prompt) {
       await prompt.prompt();
       const { outcome } = await prompt.userChoice;

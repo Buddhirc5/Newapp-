@@ -34,6 +34,9 @@ export interface ChatMessage {
   followUps?: string[];
   /** Changes the assistant suggested; `done` once the member applied them. */
   actions?: { type: string; target: string; value: string; label: string; done?: boolean }[];
+  /** The saved question id, for 👍 / 👎 feedback, and the member's rating. */
+  questionId?: number | null;
+  rated?: "up" | "down";
   at: string;
 }
 

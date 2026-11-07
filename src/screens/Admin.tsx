@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import {
+  Activity,
   CreditCard,
   Flag,
   KeyRound,
@@ -21,6 +22,7 @@ import { AiUsage } from "@/screens/admin/AiUsage";
 import { Pills } from "@/screens/admin/charts";
 import { Dashboard } from "@/screens/admin/Dashboard";
 import { Members } from "@/screens/admin/Members";
+import { Usage } from "@/screens/admin/Usage";
 import { Revenue } from "@/screens/admin/Revenue";
 import { SecurityPage } from "@/screens/admin/SecurityPage";
 import { SettingsPage } from "@/screens/admin/SettingsPage";
@@ -57,10 +59,11 @@ import { formatNumber, relativeDay } from "@/lib/format";
 import { signInWithGoogle, signInWithPassword, signOut, useAuth, useGoogleEnabled } from "@/lib/sync";
 import { Captcha, TURNSTILE_SITE_KEY } from "@/components/Captcha";
 
-type Tab = "dashboard" | "members" | "revenue" | "ai" | "community" | "security" | "settings";
+type Tab = "dashboard" | "usage" | "members" | "revenue" | "ai" | "community" | "security" | "settings";
 
 const TABS: { id: Tab; label: string; heading: string; icon: LucideIcon }[] = [
   { id: "dashboard", label: "Dashboard", heading: "Pulse", icon: LayoutDashboard },
+  { id: "usage", label: "Usage", heading: "Usage", icon: Activity },
   { id: "members", label: "Members", heading: "Members", icon: Users },
   { id: "revenue", label: "Revenue", heading: "Revenue", icon: CreditCard },
   { id: "ai", label: "AI usage", heading: "AI usage", icon: Sparkles },
@@ -503,6 +506,7 @@ export function Console() {
           )}
         </div>
         {tab === "dashboard" && <Dashboard go={go} />}
+        {tab === "usage" && <Usage />}
         {tab === "members" && <Members />}
         {tab === "revenue" && <Revenue />}
         {tab === "ai" && <AiUsage go={go} />}

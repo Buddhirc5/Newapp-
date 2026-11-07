@@ -41,7 +41,7 @@ export default defineConfig(({ mode }) => {
           globIgnores: ["**/pdf-*.js", "**/pdf.worker*", "**/jspdf*.js", "**/html2canvas*.js", "**/purify*.js", "**/index.es-*.js"],
           navigateFallback: "/index.html",
           // Public search pages are plain HTML; let the network serve them.
-          navigateFallbackDenylist: [/^\/learn/, /^\/visa/, /^\/cities/, /^\/sitemap/, /^\/robots/],
+          navigateFallbackDenylist: [/^\/learn/, /^\/visa/, /^\/cities/, /^\/blog/, /^\/careers/, /^\/study/, /^\/news/, /^\/sitemap/, /^\/robots/],
         },
       }),
     );

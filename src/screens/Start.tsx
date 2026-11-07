@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Navigate, useNavigate } from "react-router";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowRight, Check, ChevronLeft } from "lucide-react";
@@ -16,6 +16,7 @@ import { useApp } from "@/store/app";
 import type { CityId, PathId } from "@/types";
 import { CITIES } from "@/data/places";
 import { saveSignupSource } from "@/lib/attribution";
+import { track } from "@/lib/track";
 
 type Situation = MemberProfile["situation"];
 type Stage = MemberProfile["stage"];
@@ -60,6 +61,7 @@ export function Start() {
   const [interests, setInterests] = useState<string[]>(["housing", "money"]);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const onboardSeen = useRef("");
 
   useEffect(() => {
     if (member?.display_name && !name) setName(member.display_name === "New member" ? "" : member.display_name);
@@ -79,6 +81,10 @@ export function Start() {
   const inNz = situation === "in_nz";
   const steps = ["situation", inNz ? "nz-stage" : "path", inNz ? null : "stage", "city", "interests", "name"].filter(Boolean) as string[];
   const current = steps[step];
+  if (onboardSeen.current !== current) {
+    onboardSeen.current = current;
+    track(`onboard:${step + 1}-${current}`);
+  }
   const next = () => (step < steps.length - 1 ? setStep(step + 1) : void finish());
   const pick = <T,>(set: (v: T) => void, v: T) => {
     tick();
@@ -104,6 +110,7 @@ export function Start() {
       const slugs = [city, PATH_GROUP[path], ...interests.map((i) => INTEREST_GROUP[i])].filter(Boolean) as string[];
       await joinGroupsBySlug(slugs).catch(() => undefined);
       await saveSignupSource();
+      track("onboard:done");
       // Keep the on-device journey in step with the account.
       local.completeOnboarding({ ...local.profile, name: name.trim(), city, goal: path === "student" ? "study" : path === "family" ? "family" : path === "business" ? "business" : "work" }, { at: new Date().toISOString(), ranking: [] }, path);
       await loadMember();

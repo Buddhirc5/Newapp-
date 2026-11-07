@@ -14,6 +14,8 @@ import { LogoMark } from "../Logo";
 import { SampleBanner } from "../SampleBanner";
 import { TrialBanner } from "../TrialBanner";
 import { AskFab } from "../assistant/AskFab";
+import { trackView } from "@/lib/track";
+import { useOnlinePresence } from "@/lib/presence";
 import { ThemeToggle } from "../ThemeToggle";
 
 interface Tab {
@@ -37,8 +39,10 @@ export function AppShell() {
   const location = useLocation();
   const reduce = useReducedMotion();
 
+  useOnlinePresence();
   useEffect(() => {
     markActive();
+    trackView(location.pathname);
   }, [markActive, location.pathname]);
 
   useEffect(() => {

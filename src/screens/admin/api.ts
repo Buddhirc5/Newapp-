@@ -178,3 +178,39 @@ export const AI_KIND_LABEL: Record<string, string> = { document: "Document check
 
 /** Rough cost per AI use (USD), for planning only: low effort, typical sizes. */
 export const AI_COST_USD: Record<string, number> = { haiku: 0.002, sonnet: 0.04, batch: 0.001 };
+
+export interface UsageReport {
+  screens: { screen: string; views: number; members: number }[];
+  actions: { action: string; detail: string; times: number; members: number }[];
+  onboarding: { step: string; members: number }[];
+  daily_active: { day: string; members: number }[];
+  questions: { total: number; helpful: number; not_helpful: number; with_actions: number };
+}
+
+export async function fetchUsage(days: number): Promise<UsageReport> {
+  const { data, error } = await (await sb()).rpc("admin_usage", { p_days: days });
+  if (error) throw new Error(/admin_usage|function/i.test(error.message) ? "Usage tracking isn't set up yet. Run the usage database update (supabase/migrations/20261113000000_usage_insights.sql)." : error.message);
+  return data as UsageReport;
+}
+
+export interface AiQuestion {
+  id: number;
+  user_id: string | null;
+  question: string;
+  answer: string;
+  model: string | null;
+  actions: number;
+  helpful: boolean | null;
+  created_at: string;
+}
+
+export async function fetchQuestions(days: number): Promise<AiQuestion[]> {
+  const { data, error } = await (await sb())
+    .from("ai_questions")
+    .select("id, user_id, question, answer, model, actions, helpful, created_at")
+    .gte("created_at", new Date(Date.now() - days * 86_400_000).toISOString())
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []) as AiQuestion[];
+}
