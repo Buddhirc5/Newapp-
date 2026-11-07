@@ -101,14 +101,14 @@ begin
     'screens', (
       select coalesce(jsonb_agg(jsonb_build_object('screen', detail, 'views', views, 'members', members) order by members desc, views desc), '[]'::jsonb)
       from (
-        select detail, count(*) views, count(distinct user_id) members
+        select detail, count(*) as views, count(distinct user_id) as members
         from public.usage_events where event = 'view' and created_at >= since group by detail order by 3 desc, 2 desc limit 40
       ) s
     ),
     'actions', (
       select coalesce(jsonb_agg(jsonb_build_object('action', event, 'detail', detail, 'times', times, 'members', members) order by times desc), '[]'::jsonb)
       from (
-        select event, detail, count(*) times, count(distinct user_id) members
+        select event, detail, count(*) as times, count(distinct user_id) as members
         from public.usage_events where event not in ('view') and event not like 'onboard:%' and created_at >= since
         group by event, detail order by 3 desc limit 40
       ) s
@@ -116,14 +116,14 @@ begin
     'onboarding', (
       select coalesce(jsonb_agg(jsonb_build_object('step', step, 'members', members) order by first_at), '[]'::jsonb)
       from (
-        select replace(event, 'onboard:', '') step, count(distinct user_id) members, min(created_at) first_at
+        select replace(event, 'onboard:', '') as step, count(distinct user_id) as members, min(created_at) as first_at
         from public.usage_events where event like 'onboard:%' and created_at >= since group by event
       ) s
     ),
     'daily_active', (
       select coalesce(jsonb_agg(jsonb_build_object('day', day, 'members', n) order by day), '[]'::jsonb)
       from (
-        select (created_at at time zone 'Asia/Colombo')::date day, count(distinct user_id) n
+        select (created_at at time zone 'Asia/Colombo')::date as day, count(distinct user_id) as n
         from public.usage_events where created_at >= since group by 1
       ) s
     ),
