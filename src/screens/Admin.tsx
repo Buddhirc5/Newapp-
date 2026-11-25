@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import {
   Activity,
   CreditCard,
   Flag,
-  KeyRound,
   LogOut,
   Maximize2,
   Minimize2,
@@ -32,7 +31,6 @@ import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/Controls";
 import { toast } from "@/components/ui/Toast";
 import type { Listing } from "@/data/board";
-import { mfaState, startEnrolment, verifyCode, type MfaState } from "@/lib/adminAuth";
 import { getSupabase } from "@/lib/supabase";
 import { cn } from "@/lib/cn";
 import {
@@ -80,59 +78,10 @@ export function Admin() {
   const memberFor = useMember((s) => s.userId);
   const userId = user?.id ?? null;
 
-  // Every sign-in change bumps `version`, and the console only shows for an
-  // authenticator check made for the current version. An older answer (for
-  // example "verified" from before signing out and in again) can never open it.
-  const versionRef = useRef(0);
-  const [version, setVersion] = useState(0);
-  const [mfa, setMfa] = useState<MfaState & { userId: string | null; version: number }>({ kind: "loading", userId: null, version: -1 });
-  const bump = useCallback(() => {
-    versionRef.current += 1;
-    setVersion(versionRef.current);
-  }, []);
-  const check = useCallback(() => {
-    if (!userId) return;
-    const v = versionRef.current;
-    mfaState().then(
-      (m) => {
-        if (versionRef.current !== v) return;
-        setMfa((cur) => (cur.userId === userId && cur.version === v && cur.kind === m.kind ? cur : { ...m, userId, version: v }));
-      },
-      () => versionRef.current === v && setMfa({ kind: "none", userId, version: v }),
-    );
-  }, [userId]);
-
   const eligible = Boolean(userId && isAdmin && memberFor === userId);
   const sessionFresh = useIdleSignOut(eligible);
 
-  useEffect(() => {
-    bump();
-    if (eligible) check();
-  }, [eligible, userId, bump, check]);
-
-  // Sign-in changes hide the console until checked again; token refreshes and
-  // returning to the tab re-check quietly (the screen only changes if the answer does).
-  useEffect(() => {
-    let stop = () => {};
-    void getSupabase()?.then((sb) => {
-      const { data } = sb.auth.onAuthStateChange((event) => {
-        if (["SIGNED_IN", "SIGNED_OUT", "USER_UPDATED", "MFA_CHALLENGE_VERIFIED"].includes(event)) {
-          bump();
-          check();
-        } else if (event === "TOKEN_REFRESHED") check();
-      });
-      stop = () => data.subscription.unsubscribe();
-    });
-    const onFocus = () => document.visibilityState === "visible" && check();
-    document.addEventListener("visibilitychange", onFocus);
-    return () => {
-      stop();
-      document.removeEventListener("visibilitychange", onFocus);
-    };
-  }, [bump, check]);
-
   const memberReady = Boolean(userId) && memberFor === userId && !loading;
-  const mfaReady = mfa.userId === userId && mfa.version === version && mfa.kind !== "loading";
 
   if (!HAS_SUPABASE) return <GateScreen><Notice title="Online only">The admin console works in the online version.</Notice></GateScreen>;
   if (!ready) return <GateScreen><Checking /></GateScreen>;
@@ -146,13 +95,8 @@ export function Admin() {
         </Notice>
       </GateScreen>
     );
-  if (!mfaReady || !sessionFresh) return <GateScreen><Checking /></GateScreen>;
-  if (mfa.kind === "needs-code") return <GateScreen><MfaCode factorId={mfa.factorId} onDone={check} /></GateScreen>;
-  // Admin rights only work after the authenticator step, so setting one up is required.
-  if (mfa.kind === "none") return <GateScreen><EnrolBanner onEnrolled={check} /></GateScreen>;
-  // Only an authenticator-verified session for this exact account and sign-in reaches the console.
-  if (mfa.kind === "verified") return <Console />;
-  return <GateScreen><Checking /></GateScreen>;
+  if (!sessionFresh) return <GateScreen><Checking /></GateScreen>;
+  return <Console />;
 }
 
 /** Full-screen admin layout for everything before the console: no member-app chrome. */
@@ -383,49 +327,6 @@ function AdminLogin() {
   );
 }
 
-function MfaCode({ factorId, onDone }: { factorId: string; onDone: () => void }) {
-  const [code, setCode] = useState("");
-  const [busy, setBusy] = useState(false);
-  return (
-    <Card className="flex w-full flex-col gap-4 p-6">
-      <KeyRound className="size-7 text-teal-ink" aria-hidden />
-      <p className="text-headline font-semibold">Enter the code from your authenticator app</p>
-      <form
-        className="flex flex-col gap-3"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const locked = lockedMessage();
-          if (locked) return toast(locked, "warn");
-          setBusy(true);
-          try {
-            await verifyCode(factorId, code);
-            writeLock({ fails: 0, until: 0 });
-            onDone();
-          } catch (err) {
-            const lockedNow = recordFailure();
-            toast(lockedNow ?? (err as Error).message, "warn");
-            if (lockedNow) await signOut();
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        <TextField
-          label="6-digit code"
-          autoComplete="one-time-code"
-          inputMode="numeric"
-          maxLength={6}
-          value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-          className="text-center text-title2 tracking-[0.4em] tabular"
-        />
-        <Button type="submit" disabled={busy || code.length !== 6} block>
-          Verify
-        </Button>
-      </form>
-    </Card>
-  );
-}
 
 export function Console() {
   const [tab, setTab] = useState<Tab>("dashboard");
@@ -525,47 +426,6 @@ export function Console() {
   );
 }
 
-function EnrolBanner({ onEnrolled }: { onEnrolled: () => void }) {
-  const [enrol, setEnrol] = useState<{ factorId: string; qr: string; secret: string } | null>(null);
-  const [code, setCode] = useState("");
-  return (
-    <Card className="mb-5 flex flex-col gap-3 border-l-4 border-gold p-5">
-      <p className="text-headline font-semibold">Set up your authenticator app to open the console</p>
-      {!enrol ? (
-        <>
-          <p className="text-subhead text-label-2">Admin access needs an authenticator app (Google Authenticator, Microsoft Authenticator or 1Password). You'll enter a code each time you open the console.</p>
-          <Button size="md" className="self-start" onClick={() => startEnrolment().then(setEnrol, (e: Error) => toast(e.message, "warn"))}>
-            Set up now
-          </Button>
-        </>
-      ) : (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-          <img src={enrol.qr} alt="QR code for your authenticator app" className="size-44 rounded-xl bg-white p-2" />
-          <div className="flex min-w-0 flex-1 flex-col gap-3">
-            <p className="text-subhead text-label-2">Scan the code, or enter this key manually:</p>
-            <code className="rounded-lg bg-fill px-3 py-2 text-footnote break-all">{enrol.secret}</code>
-            <TextField label="Code from the app" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} />
-            <Button
-              size="md"
-              disabled={code.length !== 6}
-              onClick={async () => {
-                try {
-                  await verifyCode(enrol.factorId, code);
-                  toast("Authenticator connected");
-                  onEnrolled();
-                } catch (e) {
-                  toast((e as Error).message, "warn");
-                }
-              }}
-            >
-              Confirm
-            </Button>
-          </div>
-        </div>
-      )}
-    </Card>
-  );
-}
 
 
 function Moderation() {
